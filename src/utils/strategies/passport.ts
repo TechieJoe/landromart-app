@@ -5,23 +5,27 @@ import { UserService } from "src/service/user.service";
 import { loginDto } from "../dtos/loginDto";
 
 @Injectable()
-export class localStrategy extends PassportStrategy(Strategy){
+export class localStrategy extends PassportStrategy(Strategy) {
+  constructor(@Inject('USER_SERVICE') private userService: UserService) {
+    super({
+      usernameField: 'email', // Use 'email' as the field instead of 'username'
+    });
+  }
 
-    constructor(@Inject("USER_SERVICE") private userService: UserService ){
-        super({
-            usernameField: 'email'
-        })
+  // This method is called by Passport during the authentication process
+    async validate(email: string, password: string): Promise<any> {
+    console.log('Passport validation started'); // Debugging message
+
+    // Find the user by email
+    const user = await this.userService.findOneByEmail(email);
+
+    // If user is found and password is correct
+    if (user) {
+      console.log('User validated successfully'); // Debugging message
+      return user; // Attach the user object to req.user
     }
 
-    async validate(email: string, password: string){
-        console.log('passport')
-        const user = await this.userService.validate(email, password);
-        if(user){
-
-         //   console.log(user)
-            return user;
-        }
-        throw new UnauthorizedException()
-
-    }
+    // Throw UnauthorizedException if validation fails
+    throw new UnauthorizedException('Invalid email or password');
+  }
 }

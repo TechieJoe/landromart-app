@@ -4,14 +4,16 @@ import * as session from 'express-session';
 import * as passport from 'passport';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
-import * as dotenv from 'dotenv';
 import * as  cookieParser from 'cookie-parser'
 import * as bodyParser from 'body-parser';
+import { ConfigService } from '@nestjs/config';
 
 //dotenv.config()
 async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  const configService = app.get<ConfigService>(ConfigService);
 
   app.use(bodyParser.json());
   app.use(bodyParser.urlencoded({ extended: true }));
@@ -23,18 +25,18 @@ async function bootstrap() {
 
   app.use(
     session({
-      name: "susan",
-      secret: "GodIsTheGreatest",
+      name: configService.get<string>('SESSION_NAME') ,
+      secret: configService.get<string>('SESSION_SECRET'),
       resave: false,
       saveUninitialized: false,
       cookie: {
-        maxAge: 60000
-      }
+        maxAge: parseInt(configService.get<string>('SESSION_MAX_AGE'), 10)      }
     })
   )
   app.use(passport.initialize())
   app.use(passport.session())
 
-  await app.listen(1000);
+  const port = configService.get<number>('PORT')
+  await app.listen(port);
 }
 bootstrap();

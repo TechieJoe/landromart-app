@@ -39,6 +39,12 @@
 <body>
   <div class="container">
     <h1>Sign Up</h1>
+
+    <!-- Display error message if it exists -->
+    <% if (typeof error !== 'undefined' && error) { %>
+      <p class="error"><%= error %></p>
+    <% } %>
+
     <form action="signup" method="POST">
       <label for="name">Name:</label>
       <input type="text" id="name" name="name" required />

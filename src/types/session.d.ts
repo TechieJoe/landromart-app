@@ -6,3 +6,11 @@ declare module 'express-session' {
     userId: string;
   }
 }
+
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  password: string;
+}

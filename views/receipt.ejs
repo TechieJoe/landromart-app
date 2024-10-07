@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Receipt</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+
+    .receipt {
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-weight: bold;
+      font-size: 20px;
+      margin-bottom: 10px;
+    }
+
+    .transaction, .order {
+      border: 1px solid #ddd;
+      padding: 20px;
+      margin-bottom: 15px;
+      border-radius: 5px;
+      background-color: #f9f9f9;
+    }
+
+    .transaction-date, .order-date {
+      font-weight: bold;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+
+    .transaction-order, .order-id {
+      margin-bottom: 5px;
+    }
+
+    .total {
+      font-size: 18px;
+      color: #333;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="receipt">
+    <div class="section-title">Orders:</div>
+    <% receipt.orders.forEach(function(order) { %>
+      <div class="order">
+        <p class="order-id">Order ID: <%= order.orderId %></p>
+        <ul>
+          <% order.items.forEach(function(item) { %>
+            <li><%= item.item %> - <%= item.action %> (Quantity: <%= item.quantity %>, Total: &#8358;<%= item.total.toLocaleString() %>)</li>
+          <% }) %>
+        </ul>
+        <p class="total">Grand Total: &#8358;<%= order.grandTotal.toLocaleString() %></p>
+        <p class="order-date">Date: <%= new Date(order.createdAt).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) %></p>
+      </div>
+    <% }) %>
+  </div>
+
+  <div class="receipt">
+    <div class="section-title">Transactions:</div>
+    <% receipt.transactions.forEach(function(transaction) { %>
+      <div class="transaction">
+        <p>Transaction Reference: <%= transaction.transactionReference %></p>
+        <p>Status: <%= transaction.status %></p>
+        <p>Amount Paid: &#8358;<%= transaction.amountPaid.toLocaleString() %></p>
+        <p class="transaction-date">Transaction Date: <%= new Date(transaction.transactionDate).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) %></p>
+
+        <div class="section-title">Associated Orders:</div>
+        <% transaction.orders.forEach(function(order) { %>
+          <div class="order">
+            <p class="order-id">Order ID: <%= order.orderId %></p>
+            <ul>
+              <% order.items.forEach(function(item) { %>
+                <li><%= item.item %> - <%= item.action %> (Quantity: <%= item.quantity %>, Total: &#8358;<%= item.total.toLocaleString() %>)</li>
+              <% }) %>
+            </ul>
+            <p class="total">Grand Total: &#8358;<%= order.grandTotal.toLocaleString() %></p>
+          </div>
+        <% }) %>
+      </div>
+    <% }) %>
+  </div>
+</body>
+</html>

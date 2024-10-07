@@ -3,28 +3,140 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title> profile </title>
+  <title>User Profile</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .container { max-width: 600px; margin: auto; }
+    img { width: 150px; height: 150px; object-fit: cover; border-radius: 50%; }
+    .form-group { margin-bottom: 15px; position: relative; }
+    .form-group label { display: block; margin-bottom: 5px; }
+    .form-group input { width: 100%; padding: 8px; display: none; }
+    .editable { display: inline-block; width: calc(100% - 30px); }
+    .edit-icon { cursor: pointer; color: blue; position: absolute; top: 35px; right: 5px; font-size: 18px; }
+    button { padding: 10px 15px; background-color: #28a745; color: #fff; border: none; cursor: pointer; }
+    button:hover { background-color: #218838; }
+    .save-btn { display: none; background-color: #007bff; }
+    .save-btn:hover { background-color: #0056b3; }
+  </style>
 </head>
 <body>
-  <div>
-
-    <h1> User profile </h1>
-    <form action="upload" method="post" enctype="multipart/form-data"></form>
-      <input type="file" name="file" />
-      <button type="submit">Upload</button>
-    </form>
-    <img src="/uploads/default-profile.png" />
-    <p> Name: <%= user.name %> </p>
-    <p> Email: <%= user.email %> </p>
-    <br/>
-    <a href="order_history.ejs"> orders</a>
-    <br/>
-    <a href="transaction_history.ejs"> transactions</a>
-    <br/>
-    <form action="logout" method="POST" ">
-      <button type="submit">Logout</button>
-    </form>    
+  <div class="container">
+    <h1>User Profile</h1>
     
+    <!-- Display user's profile picture -->
+    <img id="profilePicture" src="<%= user.profilePicture || '/uploads/default-profile.png' %>" alt="Profile Picture" />
+    
+    <!-- Form to upload a new profile picture -->
+    <form id="uploadForm" enctype="multipart/form-data">
+      <input type="file" name="image" accept="image/*" required />
+      <button type="submit">Upload Profile Picture</button>
+    </form>
+    
+    <hr />
+
+    <!-- Display and update user's details -->
+    <form id="updateProfileForm">
+      <div class="form-group">
+        <label for="name">Name</label>
+        <span class="editable" id="nameDisplay"><%= user.name %></span>
+        <input type="text" id="nameInput" name="name" />
+        <span class="edit-icon" onclick="editField('name')">✎</span>
+        <button class="save-btn" id="nameSaveBtn" type="button" onclick="saveField('name')">Save</button>
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email</label>
+        <span class="editable" id="emailDisplay"><%= user.email %></span>
+        <input type="email" id="emailInput" name="email" />
+        <span class="edit-icon" onclick="editField('email')">✎</span>
+        <button class="save-btn" id="emailSaveBtn" type="button" onclick="saveField('email')">Save</button>
+      </div>
+      
+      <button type="submit">Submit All Changes</button>
+    </form>
+    
+    <hr />
+
+    <!-- Link to order history -->
+    <a href="/order_history">View Order History</a><br/>
+    <a href="/transaction_history">View Transaction History</a><br/>
+
+    <!-- Logout form -->
+    <form action="/logout" method="POST">
+      <button type="submit">Logout</button>
+    </form>
   </div>
+
+  <script>
+    // Handle profile picture upload
+    const uploadForm = document.getElementById('uploadForm');
+    const profilePicture = document.getElementById('profilePicture');
+
+    uploadForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const formData = new FormData(uploadForm);
+
+      const response = await fetch('upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        profilePicture.src = result.imageUrl;
+      } else {
+        alert(result.message);
+      }
+    });
+
+    // Handle editable fields
+    function editField(field) {
+      const displayElement = document.getElementById(field + 'Display');
+      const inputElement = document.getElementById(field + 'Input');
+      const saveButton = document.getElementById(field + 'SaveBtn');
+
+      displayElement.style.display = 'none';
+      inputElement.style.display = 'inline-block';
+      saveButton.style.display = 'inline-block';
+      inputElement.value = displayElement.textContent;
+    }
+
+    function saveField(field) {
+      const displayElement = document.getElementById(field + 'Display');
+      const inputElement = document.getElementById(field + 'Input');
+      const saveButton = document.getElementById(field + 'SaveBtn');
+
+      displayElement.textContent = inputElement.value;
+
+      inputElement.style.display = 'none';
+      saveButton.style.display = 'none';
+      displayElement.style.display = 'inline-block';
+    }
+
+    // Handle profile details update (for name and email)
+    const updateProfileForm = document.getElementById('updateProfileForm');
+    updateProfileForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const formData = new FormData(updateProfileForm);
+      const updateData = {
+        name: formData.get('name'),
+        email: formData.get('email')
+      };
+
+      const response = await fetch('update', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        alert(result.message);
+      } else {
+        alert('Profile update failed');
+      }
+    });
+  </script>
 </body>
 </html>

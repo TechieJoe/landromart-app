@@ -11,9 +11,14 @@ import { Order, OrderSchema } from 'src/utils/schemas/order';
 import { Transaction, transactionSchema } from 'src/utils/schemas/transaction';
 import { Profile, ProfileSchema } from 'src/utils/schemas/profile';
 import { passwordService } from 'src/service/password.service';
+import { MulterModule } from '@nestjs/platform-express';
 
 @Module({
     imports: [
+
+        MulterModule.register({
+            dest: './uploads/profile-pictures',
+        }),
         
         PassportModule.register({ session: true }),
         MongooseModule.forFeature

@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { comparePwd, encodedPwd } from 'src/utils/bcrypt';
@@ -28,24 +28,24 @@ export class UserService {
     
 
     async createUser(signupDto: signupDto){
-        const {name, email, password} = signupDto;
-        const hash = encodedPwd(password)
-        const user = await this.userModel.create({
-            name,
-            email,
-            password: hash
-        })
+      const {name, email, password} = signupDto;
 
-        console.log(user)
-        return user
+       // Check if the email already exists in the database
+      const existingUser = await this.userModel.findOne({ email }).exec();
+      if (existingUser) {
+      // Throw an error if the email is already registered
+       throw new BadRequestException('Email already exists');
     }
+       const hash = encodedPwd(password)
+      const user = await this.userModel.create({
+          name,
+          email,
+          password: hash
+      })
 
-   // async login(user: any){
-    //    const payload = { username: user.name,id: user.id, role: user.role};
-      //  return{
-        //    access_token: this.jwtService.sign(payload)
-       // }
-   // }
+      console.log(user)
+      return user
+    }
 
   async validate(email: string, password: string){
     // const{ email, password } = loginDto;
@@ -181,6 +181,12 @@ async initializeTransaction(email: string, amount: number, userId: string, order
     return profile;
   }
 
+  async updateProfilePicture(userId: string, imageUrl: string) {
+    return this.userModel.findByIdAndUpdate(userId, { profileImage: imageUrl }, {
+      new: true,
+    });
+  }
+
   async getOrders(userId: string):Promise<Order[]> {
     const orders = await this.orderModel.find({ userId }).sort({ createdAt: -1 }).exec();
     return orders;
@@ -220,4 +226,49 @@ async initializeTransaction(email: string, amount: number, userId: string, order
     return await this.userModel.find()
   }
 
+  
+  async getUserReceipt(userId: string) {
+    // Populate the user's orders and transactions, including the orderIds inside transactions
+    const user = await this.userModel
+      .findById(userId)
+      .populate('orders') // Populate the user's orders
+      .populate({
+        path: 'transactions',
+        populate: {
+          path: 'orderIds', // Populate the orders inside transactions
+          model: 'Order',
+        },
+      })
+      .exec();
+  
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+  
+    // Generate the receipt object
+    const receipt = {
+      userName: user.name,
+      userEmail: user.email,
+      orders: user.orders.map((order: any) => ({
+        orderId: order.orderId,
+        items: order.orders,
+        grandTotal: order.grandTotal,
+        createdAt: order.createdAt,
+      })),
+      transactions: user.transactions.map((transaction: any) => ({
+        transactionReference: transaction.reference,
+        status: transaction.status,
+        amountPaid: transaction.amount,
+        transactionDate: transaction.createdAt, // Assuming `createdAt` exists in Transaction schema
+        orders: transaction.orderIds.map((order: any) => ({
+          orderId: order.orderId,
+          items: order.orders,
+          grandTotal: order.grandTotal,
+        })),
+      })),
+    };
+  
+    return receipt;
+  }
+    
 }

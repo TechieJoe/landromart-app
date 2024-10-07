@@ -1,16 +1,19 @@
 // src/profile/dto/update-profile.dto.ts
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsNotEmpty, IsEmail } from 'class-validator';
 
 export class UpdateProfileDto {
-  @IsString()
   @IsOptional()
-  readonly name?: string;
+  @IsString()
+  @IsNotEmpty({ message: 'Name should not be empty' })
+  name?: string;
 
-  @IsString()
-  @IsOptional()
-  readonly email?: string;
+  @IsOptional() 
+  @IsEmail({}, { message: 'Invalid email format' })
+  @IsNotEmpty({ message: 'Email should not be empty' })
+  email?: string;
 
+  @IsOptional() 
   @IsString()
-  @IsOptional()
-  readonly bio?: string;
+  profilePicture?: string; // This
+
 }

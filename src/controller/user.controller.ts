@@ -1,6 +1,9 @@
-import { Body, Controller, Get, HttpException, HttpStatus, Inject, InternalServerErrorException, Param, Post, Query, Render, Req, Request, Res, Session, UploadedFile, UseGuards, UseInterceptors, UsePipes, ValidationPipe } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpException, HttpStatus, Inject, InternalServerErrorException, NotFoundException, Param, Post, Put, Query, Render, Req, Request, Res, Session, UnauthorizedException, UploadedFile, UseGuards, UseInterceptors, UsePipes, ValidationPipe } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
+import { Model } from 'mongoose';
+import { extname } from 'path';
 import { passwordService } from 'src/service/password.service';
 import { UserService } from 'src/service/user.service';
 import { jwtGuard } from 'src/utils/Guards/jwt';
@@ -10,20 +13,35 @@ import { CreateOrderDto } from 'src/utils/dtos/order';
 import { ForgotPasswordDto, ResetPasswordDto } from 'src/utils/dtos/password';
 import { UpdateProfileDto } from 'src/utils/dtos/profile';
 import { signupDto } from 'src/utils/dtos/signupDto';
-
+import { User } from 'src/utils/schemas/user';
+import { diskStorage } from 'multer';
+import { v4 as uuidv4 } from 'uuid';
 
 @Controller('user-controller')
 export class UserController {
 
-  constructor(@Inject("USER_SERVICE") private userService: UserService, @Inject("PASSWORD_SERVICE") private passwordService: passwordService){}
+  constructor(@Inject("USER_SERVICE") private userService: UserService, @Inject("PASSWORD_SERVICE") private passwordService: passwordService, @InjectModel(User.name) private userModel: Model<User>){}
 
   @Render('signup')
   @Get('signup')
   register(){}
 
   @Post('signup')
-  signup(@Body() signupDto: signupDto){
-    return this.userService.createUser(signupDto)
+  @Render('signup')  // Use this decorator to render the signup page
+  async signup(@Body() signupDto: signupDto) {
+    try {
+      await this.userService.createUser(signupDto);
+
+      // If signup is successful, render success message
+      return { message: 'User created successfully! Please log in.' };
+    } catch (error) {
+      // Catch BadRequestException or other errors and pass to the view
+      if (error instanceof BadRequestException) {
+        return { error: error.message }; // Show "Email already exists" message
+      }
+      console.error('Signup error:', error.message);
+      return { error: 'Failed to create user. Please try again.' };
+    }
   }
 
 
@@ -31,24 +49,40 @@ export class UserController {
   @Get('login')
   signin() {}
 
-  @UseGuards(localGuard)
-  @Post('login')
-  async login(@Request() req, @Res() res: Response,
-  @Session() session: Record<string, any>) {
+ @UseGuards(localGuard)
+ @Post('login')
+ async login(
+   @Request() req,
+   @Res() res: Response,
+   @Session() session: Record<string, any>
+ ) {
+   try {
+     const { email, password } = req.body;
+     
+     // Validate user and retrieve their information
+     const user = await this.userService.validate(email, password);
+     
+     if (!user) {
+       // If user is not valid, render login page with an error
+       return res.render('login', { error: 'Invalid email or password' });
+     }
+     
+     // Store the user ID in the session
+     session.userId = user._id;
+     
+     // Optionally store email as well
+     req.session.email = email;
+ 
+     // Redirect to the service page after successful login
+     return res.redirect('service'); 
+   } catch (error) {
+     console.error('Login error:', error.message);
+     return res.render('login', { error: 'An error occurred during login' });
+   }
+ }
+ 
 
-    const{ email, password } = req.body;
-
-    session.userId = req.user._id;  // Store _id as userId in the session
-    //return { message: 'Logged in successfully', userId: req.user._id };
-
-    req.session.email = email;  // Store email in session
-
-    // return { msg: "logged in "}
-    return res.render('service'); // or res.redirect('/service') if needed
-
-  }
-
-  @Render('home')
+   @Render('home')
   @Get('home')
   home(){}
 
@@ -80,11 +114,14 @@ export class UserController {
     return this.passwordService.resetPassword(resetToken, newPassword);
   }
 
+
+  @UseGuards(AuthenticatedGuard)
   @Render('service')
   @Get('service')
   service() {}
 
 
+  @UseGuards(AuthenticatedGuard)
   @Render('order')
   @Get('order.html')
   order( @Req() req: Request) {}
@@ -170,18 +207,35 @@ export class UserController {
     }
   }
 
+
   @Post('upload')
-  @UseInterceptors(FileInterceptor('file', UserService.multerOptions))
-  uploadProfilePicture(@UploadedFile() file, @Res() res: Response) {
-    if (!file) {
-      return res.status(400).send('File upload failed');
-    }
-    return res.status(200).send({
-      message: 'File uploaded successfully',
-      filePath: `/uploads/${file.filename}`,
-    });
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: diskStorage({
+        destination: './uploads/profile-pictures',
+        filename: (req, file, cb) => {
+          const filename = uuidv4() + extname(file.originalname);
+          cb(null, filename);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+          cb(null, true);
+        } else {
+          cb(new Error('Only image files are allowed!'), false);
+        }
+      },
+    }),
+  )
+  async uploadProfilePicture(@UploadedFile() file: Express.Multer.File, @Request() req) {
+    const userId = req.session.userId;
+    const imageUrl = `/uploads/profile-pictures/${file.filename}`;
+    await this.userService.updateProfilePicture(userId, imageUrl);
+    return { message: 'Profile picture uploaded successfully', imageUrl };
   }
 
+
+  @UseGuards(AuthenticatedGuard)
   @Render('profile')
   @Get('profiles')
   async getProfilePage(@Request() req): Promise<any> {
@@ -194,15 +248,12 @@ export class UserController {
 
   }
  
-  @Post('update')
-  async updateProfile(@Request() req, @Body() updateProfileDto: UpdateProfileDto): Promise<any> {
-
-    const userId = req.session.userId;  // Ensure `userId` is available in session
-    await this.userService.updateProfile(userId, updateProfileDto);
-     // Redirect to profile page or show a success message
-    return { success: true };
-     
-  }    
+ @Put('update')
+  async updateProfile(@Body() UpdateProfileDto: UpdateProfileDto, @Request() req) {
+    const userId = req.session.userId;
+    await this.userService.updateProfile(userId, UpdateProfileDto);
+    return { message: 'Profile updated successfully' };
+  }
 
  // @Render('order_history')
   @Get('order_history.ejs')
@@ -215,6 +266,8 @@ export class UserController {
     res.render('order_history',{orders: orders})
   }
 
+  
+  @UseGuards(AuthenticatedGuard)
   @Render('transaction_history')
   @Get('transaction_history.ejs')
   async fetchTransactions(@Req() req){
@@ -224,6 +277,17 @@ export class UserController {
     return{transactions}
   }
 
+  @Get('receipt')
+  async getUserReceipt(@Req() req, @Res() res: Response) {
+    const userId = req.session.userId; // Assuming `userId` is attached to req.user via the JWT strategy
+
+    try {
+      const receipt = await this.userService.getUserReceipt(userId);
+      return res.render('receipt', { receipt });
+      } catch (error) {
+      throw new NotFoundException(`Receipt for User with ID ${userId} not found`);
+    }
+  }
 
   @Post('logout')
   logout(@Req() req, @Res() res: Response): void {

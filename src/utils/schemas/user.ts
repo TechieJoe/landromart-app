@@ -1,22 +1,20 @@
-import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import { Role } from "./enum.Roles";
-import { Order } from "./order";
-import mongoose from "mongoose";
-
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import mongoose from 'mongoose';
+import { Order } from './order';
+import { Transaction } from './transaction';
 
 @Schema()
-
-export class User{
+export class User {
 
   _id: string;
 
-  @Prop({ required: true})
+  @Prop({ required: true })
   name: string;
 
-  @Prop({ unique: true, required: true})
+  @Prop({ unique: true, required: true })
   email: string;
 
-  @Prop({ required: true})
+  @Prop({ required: true })
   password: string;
 
   @Prop()
@@ -25,13 +23,13 @@ export class User{
   @Prop()
   resetTokenExpiration?: Date;
 
-  //@Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Order' }]})
-  //order: Order[];
-    
+  // Relationship with Orders
+  @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Order' }] })
+  orders: Order[];
+
+  // Relationship with Transactions
+  @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Transaction' }] })
+  transactions: Transaction[];
 }
 
-export const userSchema = SchemaFactory.createForClass(User)
-
-
-
-
+export const userSchema = SchemaFactory.createForClass(User);

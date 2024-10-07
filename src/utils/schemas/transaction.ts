@@ -1,9 +1,8 @@
-// src/payment/schemas/payment.schema.ts
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import mongoose, { Document } from 'mongoose';
 
 @Schema({ timestamps: true })
-export class Transaction extends Document{
+export class Transaction extends Document {
 
   @Prop({ required: true })
   email: string;
@@ -14,11 +13,12 @@ export class Transaction extends Document{
   @Prop({ required: true })
   reference: string;
 
-  @Prop({ required: true })
-  userId: string;
-  
-  @Prop({ required: true })
-  orderId: string;
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true })
+  userId: mongoose.Schema.Types.ObjectId;
+
+  // Reference to Order schema (multiple orders could be linked to one transaction)
+  @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Order' }], required: true })
+  orderIds: mongoose.Schema.Types.ObjectId[];
 
   @Prop({ required: true, default: 'pending' })
   status: string;

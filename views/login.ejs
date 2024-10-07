@@ -7,6 +7,13 @@
 </head>
 <body>
   <h2>Login</h2>
+
+  <% if (typeof error !== 'undefined') { %>
+    <div style="color: red;">
+      <%= error %>
+    </div>
+  <% } %>
+    
   <form action="login" method="post">
     <div>
       <label for="email">Email:</label>

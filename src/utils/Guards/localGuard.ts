@@ -14,12 +14,12 @@ export class localGuard extends AuthGuard('local'){
     }
 }
 
-@Injectable()
-export class AuthenticatedGuard implements CanActivate{
 
-    async canActivate(context: ExecutionContext){
-        const req = context.switchToHttp().getRequest<Request>();
-        return req.isAuthenticated()
-    }
+@Injectable()
+export class AuthenticatedGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest<Request>();
+    return request.isAuthenticated(); // Check if the user is authenticated
+  }
 }
 
