@@ -4,30 +4,164 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f8ff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 400px;
+      margin: auto;
+      text-align: center;
+    }
+
+    .error-message {
+      color: red;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #0080ff, #00bfff);
+      padding: 30px;
+      text-align: center;
+      border-radius: 0 0 50% 50%;
+    }
+
+    .header img {
+      height: 120px;
+    }
+
+    .form-container {
+      padding: 20px;
+      background-color: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-container h2 {
+      color: #0080ff;
+      font-size: 22px;
+      margin-bottom: 20px;
+    }
+
+    .input-container {
+      width: 100%;
+      margin-bottom: 15px;
+    }
+
+    .input-container input {
+      width: 100%;
+      padding: 15px;
+      border: 1px solid #d9e5f4;
+      border-radius: 5px;
+      background-color: #f0f8ff;
+      font-size: 16px;
+    }
+
+    form button {
+      width: 100%;
+      padding: 15px;
+      background-color: #0080ff;
+      border: none;
+      border-radius: 5px;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    form button:hover {
+      background-color: #005bb5;
+    }
+
+    .forgot-password {
+      margin-bottom: 10px;
+    }
+
+    .forgot-password a {
+      color: #0080ff;
+      text-decoration: none;
+    }
+
+    .forgot-password a:hover {
+      text-decoration: underline;
+    }
+
+    .login-text {
+      margin-top: 10px;
+    }
+
+    .login-text a {
+      color: #0080ff;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    .login-text a:hover {
+      text-decoration: underline;
+    }
+
+    /* Responsive Design */
+    @media screen and (max-width: 768px) {
+      .header h1 {
+        font-size: 20px;
+      }
+
+      .form-container h2 {
+        font-size: 18px;
+      }
+
+      .input-container input {
+        padding: 10px;
+      }
+
+      form button {
+        padding: 10px;
+      }
+    }
+  </style>
 </head>
 <body>
-  <h2>Login</h2>
 
-  <% if (typeof error !== 'undefined') { %>
-    <div style="color: red;">
-      <%= error %>
-    </div>
-  <% } %>
+  <div class="container">
+    <% if (typeof error !== 'undefined') { %>
+      <div class="error-message"><%= error %></div>
+    <% } %>
     
-  <form action="login" method="post">
-    <div>
-      <label for="email">Email:</label>
-      <input type="email" id="email" name="email" required>
+    <div class="header">
+      <img src="../public/icons/logo-24.png" alt="Logo">
     </div>
-    <div>
-      <label for="password">Password:</label>
-      <input type="password" id="password" name="password" required>
+    
+    <div class="form-container">
+      <h2>Login</h2>
+      <form action="login" method="POST">
+        <div class="input-container">
+          <input type="text" name="email" placeholder="Email" required>
+        </div>
+        <div class="input-container">
+          <input type="password" name="password" placeholder="Password" required>
+        </div>
+        <p class="forgot-password">
+          <a href="fPwd.ejs">Forgotten Password?</a>
+        </p>
+        <button type="submit">Login</button>
+      </form>
+      <p class="login-text">Don't have an account? <a href="Signup.ejs">Register</a></p>
     </div>
-    <div>
-      <button type="submit">Login</button>
-      <br/>
-      <a href="fPwd.ejs"> forgot password?</a>
-    </div>
-  </form>
+  </div>
+
 </body>
 </html>

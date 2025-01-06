@@ -5,21 +5,95 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>User Profile</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    .container { max-width: 600px; margin: auto; }
-    img { width: 150px; height: 150px; object-fit: cover; border-radius: 50%; }
-    .form-group { margin-bottom: 15px; position: relative; }
-    .form-group label { display: block; margin-bottom: 5px; }
-    .form-group input { width: 100%; padding: 8px; display: none; }
-    .editable { display: inline-block; width: calc(100% - 30px); }
-    .edit-icon { cursor: pointer; color: blue; position: absolute; top: 35px; right: 5px; font-size: 18px; }
-    button { padding: 10px 15px; background-color: #28a745; color: #fff; border: none; cursor: pointer; }
-    button:hover { background-color: #218838; }
-    .save-btn { display: none; background-color: #007bff; }
-    .save-btn:hover { background-color: #0056b3; }
+    body {
+      font-family: Arial, sans-serif; 
+      margin: 20px; 
+      background-color: #f0f0f0;
+    }
+    .container {
+      max-width: 600px; 
+      margin: auto; 
+      background-color: #fff;
+      padding: 20px; 
+      border-radius: 10px; 
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    img {
+      width: 150px; 
+      height: 150px; 
+      object-fit: cover; 
+      border-radius: 50%; 
+      border: 2px solid #007bff;
+      margin-bottom: 20px; 
+    }
+    .form-group {
+      margin-bottom: 15px; 
+      position: relative; 
+      border-bottom: 1px solid #ccc; 
+      padding-bottom: 10px;
+    }
+    .form-group label {
+      display: block; 
+      margin-bottom: 5px; 
+      font-weight: bold; 
+      color: #333;
+    }
+    .form-group input {
+      width: 100%; 
+      padding: 8px; 
+      border: 1px solid #ccc; 
+      border-radius: 5px; 
+      display: none; 
+    }
+    .editable {
+      display: inline-block; 
+      width: calc(100% - 30px); 
+      color: #555; 
+      padding: 8px; 
+      border-radius: 5px; 
+      background-color: #f9f9f9; 
+      border: 1px solid #e1e1e1;
+    }
+    .edit-icon {
+      cursor: pointer; 
+      color: #007bff; 
+      position: absolute; 
+      top: 35px; 
+      right: 5px; 
+      font-size: 18px; 
+    }
+    button {
+      padding: 10px 15px; 
+      background-color: #007bff;
+      color: #fff; 
+      border: none; 
+      border-radius: 5px; 
+      cursor: pointer; 
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .save-btn {
+      display: none;
+      background-color: #007bff;
+    }
+    .save-btn:hover {
+      background-color: #0056b3;
+    }
+    a {
+      color: #007bff;
+      text-decoration: none; 
+    }
+    a:hover {
+      text-decoration: underline; 
+    }
   </style>
 </head>
 <body>
+  
+  <%- include('navbar') %>
+
   <div class="container">
     <h1>User Profile</h1>
     
@@ -51,18 +125,26 @@
         <span class="edit-icon" onclick="editField('email')">✎</span>
         <button class="save-btn" id="emailSaveBtn" type="button" onclick="saveField('email')">Save</button>
       </div>
-      
+
+      <div class="form-group">
+        <label for="address">Address</label>
+        <span class="editable" id="addressDisplay"><%= user.address %></span>
+        <input type="text" id="addressInput" name="address" />
+        <span class="edit-icon" onclick="editField('address')">✎</span>
+        <button class="save-btn" id="addressSaveBtn" type="button" onclick="saveField('address')">Save</button>
+      </div>
+
       <button type="submit">Submit All Changes</button>
     </form>
     
     <hr />
 
     <!-- Link to order history -->
-    <a href="/order_history">View Order History</a><br/>
-    <a href="/transaction_history">View Transaction History</a><br/>
+    <a href="order_history">View Order History</a><br/>
+    <a href="transaction_history">View Transaction History</a><br/>
 
     <!-- Logout form -->
-    <form action="/logout" method="POST">
+    <form action="logout" method="POST">
       <button type="submit">Logout</button>
     </form>
   </div>
@@ -113,7 +195,7 @@
       displayElement.style.display = 'inline-block';
     }
 
-    // Handle profile details update (for name and email)
+    // Handle profile details update
     const updateProfileForm = document.getElementById('updateProfileForm');
     updateProfileForm.addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -121,7 +203,8 @@
       const formData = new FormData(updateProfileForm);
       const updateData = {
         name: formData.get('name'),
-        email: formData.get('email')
+        email: formData.get('email'),
+        address: formData.get('address')
       };
 
       const response = await fetch('update', {

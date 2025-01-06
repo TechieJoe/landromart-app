@@ -1,17 +1,15 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import mongoose, { Document } from 'mongoose';
+import { v4 as uuidv4 } from 'uuid';
 
-@Schema({ timestamps: true })
-export class Order extends Document {
+@Schema()
+export class Cart extends Document {
   
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true })
   userId: mongoose.Schema.Types.ObjectId;
 
-  @Prop({ required: true })
+  @Prop({ required: true, default: uuidv4 })
   orderId: string;
-
-  reference: string;
-
 
   @Prop([{
     item: { type: String, required: true },
@@ -29,14 +27,8 @@ export class Order extends Document {
   @Prop({ required: true })
   grandTotal: number;
 
-  @Prop({ type: Object })
-  metadata: Record<string, any>;
-
-  @Prop({ required: true, default: 'pending' })
-  status: string;
-
   @Prop({ default: Date.now })
   createdAt: Date;
 }
 
-export const OrderSchema = SchemaFactory.createForClass(Order);
+export const CartSchema = SchemaFactory.createForClass(Cart);

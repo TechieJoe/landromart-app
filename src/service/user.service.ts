@@ -1,21 +1,19 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { comparePwd, encodedPwd } from 'src/utils/bcrypt';
 import { CreateOrderDto } from 'src/utils/dtos/order';
 import { signupDto } from 'src/utils/dtos/signupDto';
-import { User } from 'src/utils/schemas/user';
-import axios, { AxiosResponse } from 'axios';
+import axios from 'axios';
 import * as crypto from 'crypto';
-import * as nodemailer from 'nodemailer';
-import { Order } from 'src/utils/schemas/order';
-import { Transaction } from 'src/utils/schemas/transaction';
-import { Profile } from 'src/utils/schemas/profile';
 import { UpdateProfileDto } from 'src/utils/dtos/profile';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
-
-
+//import { Cart } from 'src/utils/schemas/cart';
+import { CreateCartDto } from 'src/utils/dtos/cart';
+import { Notification } from 'src/utils/schemas/notification';
+import { comparePwd, encodedPwd } from 'src/utils/bcrypt';
+import { user } from 'src/utils/schemas/user';
+import { Order } from 'src/utils/schemas/order';
 
 @Injectable()
 export class UserService {
@@ -24,29 +22,38 @@ export class UserService {
   private readonly paystackBaseUrl = 'https://api.paystack.co';
 
   
-  constructor(@InjectModel(User.name) private userModel: Model<User>, @InjectModel(Order.name) private orderModel: Model<Order>, @InjectModel(Transaction.name) private transactionModel: Model<Transaction>, @InjectModel(Profile.name) private profileModel: Model<Profile> ){}
+  constructor(
+    @InjectModel(user.name) private userModel: Model<user>,
+    @InjectModel(Order.name) private orderModel: Model<Order>,
+    @InjectModel(Notification.name) private notificationModel: Model<Notification>,
+   // @InjectModel(Cart.name) private cartModel: Model<Cart>
+  ) {}
     
 
-    async createUser(signupDto: signupDto){
-      const {name, email, password} = signupDto;
-
-       // Check if the email already exists in the database
-      const existingUser = await this.userModel.findOne({ email }).exec();
-      if (existingUser) {
-      // Throw an error if the email is already registered
-       throw new BadRequestException('Email already exists');
+  async createUser(signupDto: signupDto, session: any) {
+    const { name, email, password } = signupDto;
+  
+    // Check if the email already exists in the database
+    const existingUser = await this.userModel.findOne({ email }).exec();
+    if (existingUser) {
+      throw new BadRequestException('Email already exists');
     }
-       const hash = encodedPwd(password)
-      const user = await this.userModel.create({
-          name,
-          email,
-          password: hash
-      })
-
-      console.log(user)
-      return user
-    }
-
+  
+    const hash = encodedPwd(password);
+    const user = await this.userModel.create({
+      name,
+      email,
+      password: hash
+    });
+  
+    // Store userId and email in session
+    session.userId = user._id;
+    session.email = user.email;
+  
+    console.log(user);
+    return user;
+  }
+  
   async validate(email: string, password: string){
     // const{ email, password } = loginDto;
     const user = await this.userModel.findOne({email})
@@ -57,18 +64,16 @@ export class UserService {
       return null;
   } 
 
-
-
  // Order Creation
  async createOrder(createOrderDto: CreateOrderDto): Promise<any> {
   try {
-    const { email, userId, orders, grandTotal } = createOrderDto;
 
     const newOrder = new this.orderModel(createOrderDto);
     const savedOrder = await newOrder.save();
 
-    // Log the saved order to check if it's being saved successfully
-    //console.log('Order saved successfully:', savedOrder);
+    // Create a notification for the user
+    const notificationMessage = `Your order with ID ${savedOrder.orderId} has been placed successfully.`;
+    await this.createNotification(createOrderDto.userId, savedOrder._id, notificationMessage);
 
     return savedOrder;
   } catch (error) {
@@ -77,8 +82,32 @@ export class UserService {
   }
 }
 
+// Create a notification
+async createNotification(userId: string, orderId: string, message: string): Promise<Notification> {
+  const notification = new this.notificationModel({ user: userId, order: orderId, message });
+  return notification.save();
+}
+
+// Fetch notifications for a user (with order details)
+async getUserNotifications(userId: string): Promise<Notification[]> {
+  return this.notificationModel
+    .find({ user: userId })
+    .populate('order') // Populate order details
+    .sort({ createdAt: -1 })
+    .exec();
+}
+
+// Mark a notification as read
+async markAsRead(notificationId: string): Promise<Notification> {
+  return this.notificationModel.findByIdAndUpdate(
+    notificationId,
+    { read: true },
+    { new: true },
+  ).exec();
+}
+
 // Paystack Transaction Initialization
-async initializeTransaction(email: string, amount: number, userId: string, orderId: string): Promise<any> {
+async initializeTransaction(email: string, grandTotal: number): Promise<any> {
   const reference = crypto.randomBytes(16).toString('hex'); // Generate a random reference
 
   try {
@@ -86,7 +115,7 @@ async initializeTransaction(email: string, amount: number, userId: string, order
       'https://api.paystack.co/transaction/initialize', // Correct Paystack endpoint
       {
         email,
-        amount: amount * 100,  // Paystack uses kobo, so multiply by 100
+        amount: grandTotal * 100,  // Paystack uses kobo, so multiply by 100
         reference,
       },
       {
@@ -103,14 +132,10 @@ async initializeTransaction(email: string, amount: number, userId: string, order
       const authorizationUrl = response.data.data.authorization_url;
 
       // Store the transaction reference in the database for later verification
-      await this.transactionModel.create({
-        email,
-        amount,
-        reference,
-        userId,
-        orderId,
-        status: 'pending',  // Set the status as 'pending'
-      });
+      await this.orderModel.updateOne(
+        { reference },
+        { $set: { reference } }  // Store the reference
+      );
 
       // Return the authorization URL to the controller
       return authorizationUrl;
@@ -124,7 +149,6 @@ async initializeTransaction(email: string, amount: number, userId: string, order
 }  
   
 
-
   async verifyTransaction(reference: string): Promise<any> {
     try {
       const response = await axios.get(
@@ -136,6 +160,10 @@ async initializeTransaction(email: string, amount: number, userId: string, order
         },
       );
 
+      if (response.data.data.status === 'success') {
+        await this.updateTransactionStatus(reference, 'successful');
+      }
+
       return response.data;
     } catch (error) {
       console.error('Error verifying transaction:', error.response?.data);
@@ -145,7 +173,7 @@ async initializeTransaction(email: string, amount: number, userId: string, order
 
   // Method to update the transaction status in the database
   async updateTransactionStatus(reference: string, status: string): Promise<void> {
-    await this.transactionModel.updateOne({ reference }, { status });
+    await this.orderModel.updateOne({ reference }, { $set: { status } });
   }
 
   public static multerOptions = {
@@ -165,20 +193,20 @@ async initializeTransaction(email: string, amount: number, userId: string, order
     },
   };
 
-  async getProfile(userId: string): Promise<User> {
-    const profile = await this.userModel.findById(userId);;
-    if (!profile) {
+  async getProfile(userId: string): Promise<user> {
+    const user = await this.userModel.findOne({ _id: userId });
+    if (!user) {
       throw new NotFoundException('Profile not found');
     }
-    return profile;
-  }
+    return user;
+}
 
-  async updateProfile(userId: string, updateProfileDto: UpdateProfileDto): Promise<Profile> {
-    const profile = await this.profileModel.findOneAndUpdate({ userId }, updateProfileDto, { new: true }).exec();
-    if (!profile) {
+  async updateProfile(userId: string, UpdateProfileDto: UpdateProfileDto): Promise<user> {
+    const user = await this.userModel.findOneAndUpdate({ userId }, UpdateProfileDto, { new: true }).exec();
+    if (!user) {
       throw new NotFoundException('Profile not found');
     }
-    return profile;
+    return user;
   }
 
   async updateProfilePicture(userId: string, imageUrl: string) {
@@ -192,16 +220,11 @@ async initializeTransaction(email: string, amount: number, userId: string, order
     return orders;
   }
 
-  async getTransactions(userId: string): Promise<Transaction[]>{
-    return await this.transactionModel.find({ userId }).sort({ createdAt: -1 }).exec();
-  }
-
-
-  async findOneByEmail(email: string): Promise<User | undefined> {
+  async findOneByEmail(email: string): Promise<user | undefined> {
     return this.userModel.findOne({ email }).exec();
   }
 
-  async findOneByResetToken(resetToken: string): Promise<User | undefined> {
+  async findOneByResetToken(resetToken: string): Promise<user | undefined> {
     return this.userModel.findOne({ resetToken }).exec();
   }
 
@@ -226,49 +249,10 @@ async initializeTransaction(email: string, amount: number, userId: string, order
     return await this.userModel.find()
   }
 
-  
-  async getUserReceipt(userId: string) {
-    // Populate the user's orders and transactions, including the orderIds inside transactions
-    const user = await this.userModel
-      .findById(userId)
-      .populate('orders') // Populate the user's orders
-      .populate({
-        path: 'transactions',
-        populate: {
-          path: 'orderIds', // Populate the orders inside transactions
-          model: 'Order',
-        },
-      })
-      .exec();
-  
-    if (!user) {
-      throw new NotFoundException(`User with ID ${userId} not found`);
-    }
-  
-    // Generate the receipt object
-    const receipt = {
-      userName: user.name,
-      userEmail: user.email,
-      orders: user.orders.map((order: any) => ({
-        orderId: order.orderId,
-        items: order.orders,
-        grandTotal: order.grandTotal,
-        createdAt: order.createdAt,
-      })),
-      transactions: user.transactions.map((transaction: any) => ({
-        transactionReference: transaction.reference,
-        status: transaction.status,
-        amountPaid: transaction.amount,
-        transactionDate: transaction.createdAt, // Assuming `createdAt` exists in Transaction schema
-        orders: transaction.orderIds.map((order: any) => ({
-          orderId: order.orderId,
-          items: order.orders,
-          grandTotal: order.grandTotal,
-        })),
-      })),
-    };
-  
-    return receipt;
+
+  async getUserById(id: string): Promise<user> {
+    return await this.userModel.findById(id).exec();
   }
-    
+
+
 }

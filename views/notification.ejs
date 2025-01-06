@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notifications</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      padding: 0;
+      background-color: #f8f9fa;
+    }
+
+    .notification-container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      overflow: hidden;
+    }
+
+    .notification-header {
+      background-color: #007bff;
+      color: white;
+      padding: 15px;
+      text-align: center;
+      font-size: 1.5em;
+    }
+
+    .notification-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .notification-item {
+      padding: 15px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .notification-item:last-child {
+      border-bottom: none;
+    }
+
+    .notification-item:hover {
+      background-color: #f1f1f1;
+    }
+
+    .no-notifications {
+      padding: 20px;
+      text-align: center;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <div class="notification-container">
+    <div class="notification-header">Notifications</div>
+    <ul id="notificationList" class="notification-list"></ul>
+  </div>
+
+  <script>
+
+// Function to fetch notifications from the backend
+async function fetchNotifications() {
+  try {
+    const response = await fetch('/notification', { method: 'GET', credentials: 'include' });
+    if (!response.ok) {
+      throw new Error(`Error: ${response.statusText}`);
+    }
+    const data = await response.json();
+
+    // Populate the notifications
+    displayNotifications(data.notifications);
+  } catch (error) {
+    console.error('Failed to fetch notifications:', error);
+    displayNotifications([]);
+  }
+}
+
+// Function to display notifications on the frontend
+function displayNotifications(notifications) {
+  const notificationList = document.getElementById('notificationList');
+  notificationList.innerHTML = ''; // Clear existing notifications
+
+  if (notifications && notifications.length > 0) {
+    notifications.forEach((notification) => {
+      const listItem = document.createElement('li');
+      listItem.className = 'notification-item';
+
+      // Create notification content
+      listItem.innerHTML = `
+        <p><strong>Message:</strong> ${notification.message}</p>
+        <p><strong>Order ID:</strong> ${notification.orderId || 'N/A'}</p>
+        <p><strong>Grand Total:</strong> ${notification.grandTotal ? `$${notification.grandTotal}` : 'N/A'}</p>
+        <p><strong>Date:</strong> ${new Date(notification.createdAt).toLocaleString()}</p>
+      `;
+
+      notificationList.appendChild(listItem);
+    });
+  } else {
+    // Display a message when there are no notifications
+    const noNotifications = document.createElement('div');
+    noNotifications.className = 'no-notifications';
+    noNotifications.textContent = 'No notifications to display.';
+    notificationList.appendChild(noNotifications);
+  }
+}
+
+  </script>
+</body>
+</html>

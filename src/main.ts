@@ -8,7 +8,6 @@ import * as  cookieParser from 'cookie-parser'
 import * as bodyParser from 'body-parser';
 import { ConfigService } from '@nestjs/config';
 
-//dotenv.config()
 async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -23,20 +22,25 @@ async function bootstrap() {
   app.setViewEngine('ejs')
   app.use(cookieParser())
 
+  // Apply session middleware first
   app.use(
-    session({
-      name: configService.get<string>('SESSION_NAME') ,
-      secret: configService.get<string>('SESSION_SECRET'),
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        maxAge: parseInt(configService.get<string>('SESSION_MAX_AGE'), 10)      }
+  session({
+    name: configService.get<string>('SESSION_NAME'),
+    secret: configService.get<string>('SESSION_SECRET'),
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+      maxAge: parseInt(configService.get<string>('SESSION_MAX_AGE'), 10) || 3600000, // Default to 1 hour if not set
+    }
     })
-  )
-  app.use(passport.initialize())
-  app.use(passport.session())
+  );
+
+  // Passport initialization and session handling
+  app.use(passport.initialize());
+  app.use(passport.session());
 
   const port = configService.get<number>('PORT')
-  await app.listen(port);
+  await app.listen(1000);
 }
 bootstrap();

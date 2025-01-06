@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navbar Example</title>
+    <style>
+        /* General Styles */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        /* Navbar Styles */
+        header {
+            background-color: #007bff; /* Blue background */
+            padding: 10px 20px; /* Padding around the navbar */
+        }
+
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .Christologo {
+            height: 60px; /* Logo height */
+        }
+
+        .nav-icons {
+            display: flex;
+            gap: 20px; /* Space between icons */
+        }
+
+        .nav-link {
+            display: flex; /* Make the link a flex container */
+            align-items: center; /* Center icon vertically */
+            text-decoration: none; /* Remove underline */
+            transition: transform 0.2s; /* Animation on hover */
+        }
+
+        .icon {
+            width: 25px; /* Icon size */
+            height: 25px; /* Icon size */
+            filter: brightness(0) invert(1); /* White icon color */
+        }
+
+        .nav-link:hover {
+            transform: scale(1.1); /* Slightly enlarge icon on hover */
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="navbar">
+            <img src="../public/icons/logo-24.png" alt="Christo Logo" class="Christologo">
+            <div class="nav-icons">
+                <a href="home" class="nav-link">
+                    <img src="../public/icons/home_24dp_5F6368_FILL0_wght400_GRAD0_opsz24.svg" alt="Home" class="icon">
+                </a>
+                <a href="notification" class="nav-link">
+                    <img src="" alt="notification" class="icon">
+                </a>
+                <a href="profile" class="nav-link">
+                    <img src="../public/icons/person_24dp_5F6368_FILL0_wght400_GRAD0_opsz24.svg" alt="Profile" class="icon">
+                </a>
+            </div>
+        </div>
+    </header>
+</body>
+</html>

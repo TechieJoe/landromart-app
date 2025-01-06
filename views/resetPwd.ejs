@@ -56,13 +56,12 @@
 <body>
     <div class="reset-container">
         <h2>Reset Password</h2>
-        <form action="/user-controller/reset-password" method="POST">
-            <label for="new-password">New Password</label>
-            <input type="password" id="new-password" name="newPassword" required>
-            <label for="confirm-password">Confirm Password</label>
-            <input type="password" id="confirm-password" name="confirmPassword" required>
+        <form action="reset-password" method="POST">
+            <input type="hidden" name="token" value="{{resetToken}}" />
+            <input type="email" name="email" placeholder="Enter your email" required />
+            <input type="password" name="newPassword" placeholder="New password" required />
             <button type="submit">Reset Password</button>
-        </form>
+          </form>
     </div>
 </body>
 </html>

@@ -1,11 +1,11 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import mongoose from 'mongoose';
 import { Order } from './order';
-import { Transaction } from './transaction';
+import { Cart } from './cart';
+import { Notification } from './notification';
 
 @Schema()
-export class User {
-
+export class user {
   _id: string;
 
   @Prop({ required: true })
@@ -14,8 +14,13 @@ export class User {
   @Prop({ unique: true, required: true })
   email: string;
 
+  @Prop()
+  address?: string;
+
   @Prop({ required: true })
   password: string;
+
+  profilePicture?: string;
 
   @Prop()
   resetToken?: string;
@@ -27,9 +32,13 @@ export class User {
   @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Order' }] })
   orders: Order[];
 
-  // Relationship with Transactions
-  @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Transaction' }] })
-  transactions: Transaction[];
+  // Relationship with Cart
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Cart' })
+  cart: Cart[]; // Each user has a single cart
+
+  // Relationship with Notifications
+  @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Notification' }] })
+  notifications: Notification[];
 }
 
-export const userSchema = SchemaFactory.createForClass(User);
+export const userSchema = SchemaFactory.createForClass(user);

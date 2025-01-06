@@ -1,25 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UserService } from './user.service';
+import { authService } from './auth.service';
 import { ConfigService } from '@nestjs/config';
 
-describe('UserService', () => {
-  let service: UserService;
+describe('authService', () => {
+  let service: authService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        UserService,
+        authService,
         {
           provide: 'userModel',
           useValue: {}, // Mock the userModel
-        },
-        {
-          provide: 'OrderModel',
-          useValue: {}, // Mock the OrderModel
-        },
-        {
-          provide: 'NotificationModel',
-          useValue: {}, // Mock the NotificationModel
         },
         {
           provide: ConfigService,
@@ -30,7 +22,7 @@ describe('UserService', () => {
       ],
     }).compile();
 
-    service = module.get<UserService>(UserService);
+    service = module.get<authService>(authService);
   });
 
   it('should be defined', () => {

@@ -3,15 +3,15 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { PassportModule } from '@nestjs/passport';
 import { UserController } from 'src/controller/user.controller';
 import { UserService } from 'src/service/user.service';
-import { RolesGuard } from 'src/utils/Guards/roles';
-import { User, userSchema } from 'src/utils/schemas/user';
-import { localStrategy } from 'src/utils/strategies/passport';
 import { SessionSerializer } from 'src/utils/strategies/serializer';
 import { Order, OrderSchema } from 'src/utils/schemas/order';
-import { Transaction, transactionSchema } from 'src/utils/schemas/transaction';
-import { Profile, ProfileSchema } from 'src/utils/schemas/profile';
-import { passwordService } from 'src/service/password.service';
 import { MulterModule } from '@nestjs/platform-express';
+import { authService } from 'src/service/auth.service';
+import { Cart, CartSchema } from 'src/utils/schemas/cart';
+import { Notification, NotificationSchema } from 'src/utils/schemas/notification';
+import { LocalStrategy } from 'src/utils/strategies/passport';
+import { user, userSchema } from 'src/utils/schemas/user';
+
 
 @Module({
     imports: [
@@ -24,20 +24,20 @@ import { MulterModule } from '@nestjs/platform-express';
         MongooseModule.forFeature
         ([
             {
-                name: User.name,
+                name: user.name,
                 schema: userSchema
-            },
-            {
-                name: Transaction.name,
-                schema: transactionSchema
             },
             {
                 name: Order.name,
                 schema: OrderSchema
             },
             {
-                name: Profile.name,
-                schema: ProfileSchema
+                name: Cart.name,
+                schema: CartSchema
+            },
+            {
+                name: Notification.name,
+                schema: NotificationSchema
             }
 
         ]),
@@ -52,14 +52,14 @@ import { MulterModule } from '@nestjs/platform-express';
             useClass: UserService
         },
         {
-            provide: "PASSWORD_SERVICE",
-            useClass: passwordService
+            provide: "AUTH_SERVICE",
+            useClass: authService
         },
 
 
-        localStrategy, SessionSerializer, RolesGuard
+        LocalStrategy, SessionSerializer
     ],
 
-    controllers: [ UserController]
+    controllers: [ UserController ]
 })
 export class UserModule {}

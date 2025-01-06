@@ -1,4 +1,4 @@
-import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsNotEmpty, IsNumber, IsString, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class OrderItemDto {
@@ -15,7 +15,7 @@ class OrderItemDto {
   total: number;
 }
 
-export class CreateOrderDto {
+export class CreateCartDto {
 
   @IsString()
   @IsNotEmpty()
@@ -36,8 +36,19 @@ export class CreateOrderDto {
 
   @IsNumber()
   grandTotal: number;
+}
 
-  @IsOptional()
-  metadata?: Record<string, any>;
+
+export class UpdateCartDto {
   
+  @IsString()
+  @IsNotEmpty()
+  orderId: string;
+  
+  @IsString()
+  itemId: string;
+
+  @IsNumber()
+  quantity: number;
+
 }

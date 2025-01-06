@@ -2,10 +2,9 @@ import { Inject, Injectable, UnauthorizedException } from "@nestjs/common";
 import { PassportStrategy } from "@nestjs/passport";
 import { Strategy } from "passport-local";
 import { UserService } from "src/service/user.service";
-import { loginDto } from "../dtos/loginDto";
 
 @Injectable()
-export class localStrategy extends PassportStrategy(Strategy) {
+export class LocalStrategy extends PassportStrategy(Strategy) {
   constructor(@Inject('USER_SERVICE') private userService: UserService) {
     super({
       usernameField: 'email', // Use 'email' as the field instead of 'username'
@@ -16,9 +15,8 @@ export class localStrategy extends PassportStrategy(Strategy) {
     async validate(email: string, password: string): Promise<any> {
     console.log('Passport validation started'); // Debugging message
 
-    // Find the user by email
+    // Find the user & admin by email
     const user = await this.userService.findOneByEmail(email);
-
     // If user is found and password is correct
     if (user) {
       console.log('User validated successfully'); // Debugging message
