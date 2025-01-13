@@ -36,11 +36,11 @@ async function bootstrap() {
     })
   );
 
-  // Passport initialization and session handling
+  app.setGlobalPrefix('laundromart-app');
   app.use(passport.initialize());
   app.use(passport.session());
 
   const port = configService.get<number>('PORT')
-  await app.listen(1000);
+  await app.listen(port);
 }
 bootstrap();

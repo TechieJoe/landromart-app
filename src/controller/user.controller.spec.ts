@@ -1,54 +1,84 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserController } from './user.controller';
 import { UserService } from '../service/user.service';
-import { authService } from '../service/auth.service';
-import { ConfigService } from '@nestjs/config';
+import { getModelToken } from '@nestjs/mongoose';
+import { user } from 'src/utils/schemas/user';
+import { Order } from 'src/utils/schemas/order';
+import { Notification } from 'src/utils/schemas/notification';
 
 describe('UserController', () => {
   let controller: UserController;
-  let app: TestingModule;
+  let service: UserService;
 
   beforeEach(async () => {
-    app = await Test.createTestingModule({
+    const module: TestingModule = await Test.createTestingModule({
       controllers: [UserController],
       providers: [
         {
           provide: 'USER_SERVICE',
-          useClass: UserService, // Mock the UserService
+          useClass: UserService,
         },
         {
-          provide: 'AUTH_SERVICE',
-          useClass: authService, // Mock the authService
-        },
-        {
-          provide: 'userModel',
-          useValue: {}, // Mock the userModel
-        },
-        {
-          provide: 'OrderModel',
-          useValue: {}, // Mock the OrderModel
-        },
-        {
-          provide: 'NotificationModel',
-          useValue: {}, // Mock the NotificationModel
-        },
-        {
-          provide: ConfigService,
+          provide: getModelToken('user'),
           useValue: {
-            get: jest.fn().mockReturnValue('test-value'), // Mock the get method
+            findOne: jest.fn(),
+            findById: jest.fn(),
+            findOneAndUpdate: jest.fn(),
+            findByIdAndUpdate: jest.fn(),
+            create: jest.fn(),
+            exec: jest.fn(),
+          },
+        },
+        {
+          provide: getModelToken('Order'),
+          useValue: {
+            create: jest.fn(), // Add `create` method to the mock
+            find: jest.fn(),
+            findById: jest.fn(),
+            findOne: jest.fn(),
+            updateOne: jest.fn(),
+            deleteOne: jest.fn(),
+            save: jest.fn(),
+          },
+        },
+        {
+          provide: getModelToken('Notification'),
+          useValue: {
+            find: jest.fn().mockReturnValue({
+              sort: jest.fn().mockReturnThis(),
+              exec: jest.fn().mockResolvedValue([]),
+            }),
           },
         },
       ],
     }).compile();
 
-    controller = app.get<UserController>(UserController);
+    controller = module.get<UserController>(UserController);
+    service = module.get<UserService>('USER_SERVICE');
   });
 
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
-  });
+  it('should register a user', async () => {
+    const signupDto = {
+      name: 'John Doe',
+      email: 'john@example.com',
+      password: 'password',
+    };
 
-  afterAll(async () => {
-    await app.close();
+    jest.spyOn(service, 'createUser').mockResolvedValue(signupDto as any);
+
+    const req = {
+      login: jest.fn((user, callback) => callback()),
+    };
+    const res = {
+      redirect: jest.fn(),
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    };
+    const session = {};
+
+    await controller.signup(signupDto, req as any, res as any, session);
+    expect(service.createUser).toHaveBeenCalledWith(signupDto, session);
+    expect(req.login).toHaveBeenCalled();
+    expect(res.redirect).toHaveBeenCalledWith('home');
   });
 });

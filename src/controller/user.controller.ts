@@ -1,21 +1,20 @@
-import { Body, Controller, Delete, Get, HttpException, HttpStatus, Inject, InternalServerErrorException, NotFoundException, Param, Patch, Post, Put, Query, Render, Req, Request, Res, Session, UnauthorizedException, UploadedFile, UseGuards, UseInterceptors, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Get, HttpException, HttpStatus, Inject, Param, Patch, Post, Put, Query, Render, Req, Request, Res, Session, UnauthorizedException, UploadedFile, UseGuards, UseInterceptors, UsePipes, ValidationPipe } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { extname } from 'path';
-import { AuthenticatedGuard, localGuard } from 'src/utils/Guards/localGuard';
-import { CreateOrderDto } from 'src/utils/dtos/order';
-import { UpdateProfileDto } from 'src/utils/dtos/profile';
-import { signupDto } from 'src/utils/dtos/signupDto';
+import { AuthenticatedGuard, localGuard } from '../utils/Guards/localGuard';
+import { UpdateProfileDto } from '../utils/dtos/profile'; // Corrected import path
+import { signupDto } from '../utils/dtos/signupDto'; // Corrected import path
 import { diskStorage } from 'multer';
 import { v4 as uuidv4 } from 'uuid';
-import { authService } from 'src/service/auth.service';
-import { UserService } from 'src/service/user.service';
+import { UserService } from '../service/user.service'; // Corrected import path
+import * as crypto from 'crypto';
+import { CreateOrderDto } from '../utils/dtos/order'; // Corrected import path
 
-@Controller('laundromart-app')
+@Controller()
 export class UserController {
   constructor(
     @Inject("USER_SERVICE") private userService: UserService,
-    @Inject("AUTH_SERVICE") private authService: authService,
   ) {}
 
   @Render('signup')
@@ -33,7 +32,6 @@ export class UserController {
       const user = await this.userService.createUser(signupDto, session);
       (req as any).login(user, (err: any) => {
         if (err) {
-          console.error('Login error:', err);
           return res.status(500).json({ message: 'Signup succeeded, but automatic login failed' });
         }
         return res.redirect('home');
@@ -65,7 +63,6 @@ export class UserController {
       req.session.email = email;
       return res.redirect('home');
     } catch (error) {
-      console.error('Login error:', error.message);
       return res.render('login', { error: 'An error occurred during login' });
     }
   }
@@ -75,26 +72,6 @@ export class UserController {
   @Get('home')
   home() {}
 
-  @Render('fPwd')
-  @Get('fPwd.ejs')
-  fPwd() {}
-
-  @Post('forgot-password')
-  async forgotPassword(@Body('email') email: string) {
-    return this.authService.requestPasswordReset(email);
-  }
-
-  @Render('resetPwd')
-  @Get('fPwd.ejs')
-  resetPwd() {}
-
-  @Post('reset-password/:token')
-  async resetPassword(
-    @Param('token') token: string,
-    @Body('newPassword') newPassword: string
-  ) {
-    return this.authService.resetPassword(token, newPassword);
-  }
 
   @Render('service')
   @Get('service')
@@ -122,6 +99,8 @@ export class UserController {
       createOrderDto.userId = userId;
       const orderId = uuidv4(); 
       createOrderDto.orderId = orderId;
+      const reference = crypto.randomBytes(16).toString('hex');
+      createOrderDto.reference = reference
       const { orders, grandTotal } = createOrderDto;
 
       if (!orders || !grandTotal) {
@@ -129,13 +108,12 @@ export class UserController {
       }
 
       const order = await this.userService.createOrder(createOrderDto);
-      const paymentUrl = await this.userService.initializeTransaction(userEmail, grandTotal);
+      const paymentUrl = await this.userService.initializeTransaction(createOrderDto);
       if (!paymentUrl) {
         throw new Error('Failed to initialize Paystack transaction');
       }
       return res.json({ authorizationUrl: paymentUrl });
     } catch (error) {
-      console.error('Error placing order:', error);
       return res.status(500).json({ message: 'Failed to place order, please try again', error: error.message });
     }
   }
@@ -154,27 +132,31 @@ export class UserController {
         throw new HttpException('Transaction verification failed', HttpStatus.BAD_REQUEST);
       }
     } catch (error) {
-      console.error('Failed to handle payment redirect:', error);
       return res.status(500).json({ message: 'Failed to handle payment redirect' });
     }
   }
 
-  @Render('notification')
-    @Get('notification')
-    async getUserNotifications( @Request() req ) {
+  @UseGuards(AuthenticatedGuard)
+  @Render('notification') // Specify the view to render
+  @Get('notification')
+  async getUserNotifications(@Request() req) {
+    try {
       const userId = req.session.userId;
-       console.log(userId)
-      const notifications = await this.userService.getUserNotifications(userId);
-      return { notifications }
-    }
+      if (!userId) {
+        // Just return an object for rendering
+        return { notifications: [] }; 
+      }
   
-    // Mark a notification as read
-    @Patch(':id/read')
-    async markAsRead(@Param('id') id: string) {
-      return this.userService.markAsRead(id);
+      const notifications = await this.userService.getUserNotifications(userId);
+      console.log('Notifications:', notifications); // Log notifications for debugging
+      // Return the notifications object for rendering in the view
+      return { notifications };
+    } catch (error) {
+      return { notifications: [] }; // Handle error gracefully
     }
+  }
 
-  @Post('upload')
+  @Put('update')
   @UseInterceptors(
     FileInterceptor('image', {
       storage: diskStorage({
@@ -193,11 +175,15 @@ export class UserController {
       },
     })
   )
-  async uploadProfilePicture(@UploadedFile() file: Express.Multer.File, @Request() req) {
+  async updateProfile(
+    @Body() updateProfileDto: UpdateProfileDto,
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req
+  ) {
     const userId = req.session.userId;
-    const imageUrl = `/uploads/profile-pictures/${file.filename}`;
-    await this.userService.updateProfilePicture(userId, imageUrl);
-    return { message: 'Profile picture uploaded successfully', imageUrl };
+    const profilePicture = file ? `/uploads/profile-pictures/${file.filename}` : undefined;
+    const updatedUser = await this.userService.updateProfile(userId, updateProfileDto, profilePicture);
+    return { message: 'Profile updated successfully', user: updatedUser };
   }
 
   @UseGuards(AuthenticatedGuard)
@@ -207,22 +193,6 @@ export class UserController {
     const userId = req.session.userId;
     const user = await this.userService.getProfile(userId);
     return { user };
-  }
-
-  @Put('update')
-  async updateProfile(@Body() UpdateProfileDto: UpdateProfileDto, @Request() req) {
-    const userId = req.session.userId;
-    await this.userService.updateProfile(userId, UpdateProfileDto);
-    return { message: 'Profile updated successfully' };
-  }
-
-  @UseGuards(AuthenticatedGuard)
-  @Render('order_history')
-  @Get('order_history')
-  async fetchOrders(@Req() req) {
-    const userId = req.session.userId;
-    const orders = await this.userService.getOrders(userId);
-    return { orders };
   }
 
   @UseGuards(AuthenticatedGuard)  

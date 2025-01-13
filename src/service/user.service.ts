@@ -1,19 +1,16 @@
 import { BadRequestException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { CreateOrderDto } from 'src/utils/dtos/order';
 import { signupDto } from 'src/utils/dtos/signupDto';
 import axios from 'axios';
-import * as crypto from 'crypto';
 import { UpdateProfileDto } from 'src/utils/dtos/profile';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
-//import { Cart } from 'src/utils/schemas/cart';
-import { CreateCartDto } from 'src/utils/dtos/cart';
-import { Notification } from 'src/utils/schemas/notification';
-import { comparePwd, encodedPwd } from 'src/utils/bcrypt';
-import { user } from 'src/utils/schemas/user';
-import { Order } from 'src/utils/schemas/order';
+import { Notification } from '../utils/schemas/notification'; // Corrected import path
+import { comparePwd, encodedPwd } from '../utils/bcrypt'; // Corrected import path
+import { user } from '../utils/schemas/user'; // Corrected import path
+import { Order } from '../utils/schemas/order'; // Corrected import path
+import { Model } from 'mongoose';
 
 @Injectable()
 export class UserService {
@@ -21,133 +18,128 @@ export class UserService {
   private readonly paystackSecretKey = "sk_test_ac3ea693ba6514087a7948495cfaf5d3dcb7baf2";
   private readonly paystackBaseUrl = 'https://api.paystack.co';
 
-  
   constructor(
     @InjectModel(user.name) private userModel: Model<user>,
     @InjectModel(Order.name) private orderModel: Model<Order>,
     @InjectModel(Notification.name) private notificationModel: Model<Notification>,
-   // @InjectModel(Cart.name) private cartModel: Model<Cart>
   ) {}
-    
 
   async createUser(signupDto: signupDto, session: any) {
     const { name, email, password } = signupDto;
-  
+
     // Check if the email already exists in the database
     const existingUser = await this.userModel.findOne({ email }).exec();
     if (existingUser) {
       throw new BadRequestException('Email already exists');
     }
-  
+
     const hash = encodedPwd(password);
     const user = await this.userModel.create({
       name,
       email,
       password: hash
     });
-  
+
     // Store userId and email in session
     session.userId = user._id;
     session.email = user.email;
-  
-    console.log(user);
+
     return user;
   }
-  
+
   async validate(email: string, password: string){
-    // const{ email, password } = loginDto;
-    const user = await this.userModel.findOne({email})
+    const user = await this.userModel.findOne({email});
     if(user && comparePwd(password, user.password)){
       const { _id, email } = user;
       return { _id, email };
     }
-      return null;
-  } 
-
- // Order Creation
- async createOrder(createOrderDto: CreateOrderDto): Promise<any> {
-  try {
-
-    const newOrder = new this.orderModel(createOrderDto);
-    const savedOrder = await newOrder.save();
-
-    // Create a notification for the user
-    const notificationMessage = `Your order with ID ${savedOrder.orderId} has been placed successfully.`;
-    await this.createNotification(createOrderDto.userId, savedOrder._id, notificationMessage);
-
-    return savedOrder;
-  } catch (error) {
-    console.error('Error creating order:', error);
-    throw new HttpException('Failed to create order', HttpStatus.INTERNAL_SERVER_ERROR);
+    return null;
   }
-}
 
-// Create a notification
-async createNotification(userId: string, orderId: string, message: string): Promise<Notification> {
-  const notification = new this.notificationModel({ user: userId, order: orderId, message });
-  return notification.save();
-}
+  // Order Creation
+  async createOrder(createOrderDto: CreateOrderDto): Promise<Order> {
+    try {
+      const newOrder = await this.orderModel.create(createOrderDto);
+  
+      const notificationMessage = `Your order has been placed successfully`;
+      const notificationMetadata = {
+        orders: newOrder.orders,
+        grandTotal: newOrder.grandTotal,
+        status: newOrder.status,
+      };
+  
+      await this.createNotification(createOrderDto.userId, notificationMessage, notificationMetadata);
+  
+      return newOrder;
+    } catch (error) {
+      console.error('Error creating order:', error); // Debugging log
+      throw new HttpException('Failed to create order', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 
-// Fetch notifications for a user (with order details)
-async getUserNotifications(userId: string): Promise<Notification[]> {
-  return this.notificationModel
-    .find({ user: userId })
-    .populate('order') // Populate order details
-    .sort({ createdAt: -1 })
-    .exec();
-}
+    // Create a notification
+    async createNotification(
+      userId: string,
+      message: string,
+      metadata?: Record<string, any>,
+    ): Promise<void> {
+      const notification = new this.notificationModel({
+        userId,
+        message,
+        metadata,
+      });
+      await notification.save();
+    }
 
-// Mark a notification as read
-async markAsRead(notificationId: string): Promise<Notification> {
-  return this.notificationModel.findByIdAndUpdate(
-    notificationId,
-    { read: true },
-    { new: true },
-  ).exec();
-}
+  async getUserNotifications(userId: string): Promise<any> {
+    try {
+      const notifications = await this.notificationModel.find({ userId }).sort({ createdAt: -1 });
+      return notifications;
+    } catch (error) {
+      console.error('Error fetching notifications:', error); // Debugging log
+      throw new HttpException('Failed to fetch notifications', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 
-// Paystack Transaction Initialization
-async initializeTransaction(email: string, grandTotal: number): Promise<any> {
-  const reference = crypto.randomBytes(16).toString('hex'); // Generate a random reference
+  // Paystack Transaction Initialization
+  async initializeTransaction(createOrderDto: CreateOrderDto ): Promise<any> {
 
-  try {
-    const response = await axios.post(
-      'https://api.paystack.co/transaction/initialize', // Correct Paystack endpoint
-      {
-        email,
-        amount: grandTotal * 100,  // Paystack uses kobo, so multiply by 100
-        reference,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${this.paystackSecretKey}`,
+    try {
+      const response = await axios.post(
+        'https://api.paystack.co/transaction/initialize', // Correct Paystack endpoint
+        {
+          email: createOrderDto.email,
+          amount: createOrderDto.grandTotal * 100,  // Paystack uses kobo, so multiply by 100
+          reference: createOrderDto.reference,
         },
-      },
-    );
-
-    // Log Paystack response for debugging
-    console.log('Paystack response:', response.data);
-
-    if (response.data.status) {
-      const authorizationUrl = response.data.data.authorization_url;
-
-      // Store the transaction reference in the database for later verification
-      await this.orderModel.updateOne(
-        { reference },
-        { $set: { reference } }  // Store the reference
+        {
+          headers: {
+            Authorization: `Bearer ${this.paystackSecretKey}`,
+          },
+        },
       );
 
-      // Return the authorization URL to the controller
-      return authorizationUrl;
-    } else {
-      throw new HttpException('Transaction initialization failed', HttpStatus.BAD_REQUEST);
+      // Log Paystack response for debugging
+      console.log('Paystack response:', response.data);
+
+      if (response.data.status) {
+        const authorizationUrl = response.data.data.authorization_url;
+
+        // Store the transaction reference in the database for later verification
+        //await this.orderModel.updateOne(
+        // { reference },
+        //{ $set: { reference } }  // Store the reference
+        //);
+
+        // Return the authorization URL to the controller
+        return authorizationUrl;
+      } else {
+        throw new HttpException('Transaction initialization failed', HttpStatus.BAD_REQUEST);
+      }
+    } catch (error) {
+      throw new HttpException('Failed to initialize transaction', HttpStatus.INTERNAL_SERVER_ERROR);
     }
-  } catch (error) {
-    console.error('Error initializing transaction:', error.response?.data || error.message);
-    throw new HttpException('Failed to initialize transaction', HttpStatus.INTERNAL_SERVER_ERROR);
-  }
-}  
-  
+  }  
 
   async verifyTransaction(reference: string): Promise<any> {
     try {
@@ -166,7 +158,6 @@ async initializeTransaction(email: string, grandTotal: number): Promise<any> {
 
       return response.data;
     } catch (error) {
-      console.error('Error verifying transaction:', error.response?.data);
       throw new HttpException('Failed to verify transaction', HttpStatus.BAD_REQUEST);
     }
   }
@@ -199,20 +190,22 @@ async initializeTransaction(email: string, grandTotal: number): Promise<any> {
       throw new NotFoundException('Profile not found');
     }
     return user;
-}
+  }
 
-  async updateProfile(userId: string, UpdateProfileDto: UpdateProfileDto): Promise<user> {
-    const user = await this.userModel.findOneAndUpdate({ userId }, UpdateProfileDto, { new: true }).exec();
+  async updateProfile(userId: string, updateProfileDto: UpdateProfileDto, profilePicture?: string): Promise<user> {
+    const user = await this.userModel.findById(userId).exec();
     if (!user) {
       throw new NotFoundException('Profile not found');
     }
-    return user;
-  }
 
-  async updateProfilePicture(userId: string, imageUrl: string) {
-    return this.userModel.findByIdAndUpdate(userId, { profileImage: imageUrl }, {
-      new: true,
-    });
+    // Create an update object with only the fields that are present in the updateProfileDto
+    const updateData: any = {};
+    if (updateProfileDto.name) updateData.name = updateProfileDto.name;
+    if (updateProfileDto.email) updateData.email = updateProfileDto.email;
+    if (profilePicture) updateData.profilePicture = profilePicture;
+
+    const updatedUser = await this.userModel.findByIdAndUpdate(userId, { $set: updateData }, { new: true }).exec();
+    return updatedUser;
   }
 
   async getOrders(userId: string):Promise<Order[]> {
@@ -249,10 +242,8 @@ async initializeTransaction(email: string, grandTotal: number): Promise<any> {
     return await this.userModel.find()
   }
 
-
   async getUserById(id: string): Promise<user> {
     return await this.userModel.findById(id).exec();
   }
-
 
 }

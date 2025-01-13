@@ -10,6 +10,7 @@ export class Order extends Document {
   @Prop({ required: true })
   orderId: string;
 
+  @Prop({ required: true })
   reference: string;
 
 

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UserModule } from './module/user.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { AppController } from './controller/app.controller'; // Add this import
 
 @Module({
   imports: [
@@ -10,13 +11,13 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     }),
     MongooseModule.forRootAsync({
       useFactory: async (configService: ConfigService) => ({
-        uri: configService.get<string>('MONGODB_URI'),
+        uri: `mongodb://${configService.get<string>('DATABASE_HOST')}:${configService.get<string>('DATABASE_PORT')}/${configService.get<string>('DATABASE_NAME')}`,
       }),
       inject: [ConfigService],
     }),
     UserModule,
   ],
-  controllers: [],
+  controllers: [AppController], // Add this line
   providers: [],
 })
 export class AppModule {}

@@ -1,65 +1,35 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { PassportModule } from '@nestjs/passport';
-import { UserController } from 'src/controller/user.controller';
-import { UserService } from 'src/service/user.service';
-import { SessionSerializer } from 'src/utils/strategies/serializer';
-import { Order, OrderSchema } from 'src/utils/schemas/order';
+import { UserController } from '../controller/user.controller'; // Corrected import path
+import { UserService } from '../service/user.service'; // Corrected import path
+import { SessionSerializer } from '../utils/strategies/serializer'; // Corrected import path
+import { Order, OrderSchema } from '../utils/schemas/order'; // Corrected import path
 import { MulterModule } from '@nestjs/platform-express';
-import { authService } from 'src/service/auth.service';
-import { Cart, CartSchema } from 'src/utils/schemas/cart';
-import { Notification, NotificationSchema } from 'src/utils/schemas/notification';
-import { LocalStrategy } from 'src/utils/strategies/passport';
-import { user, userSchema } from 'src/utils/schemas/user';
-
+import { Notification, NotificationSchema } from '../utils/schemas/notification'; // Corrected import path
+import { LocalStrategy } from '../utils/strategies/passport';
+import { user, userSchema } from '../utils/schemas/user';
 
 @Module({
-    imports: [
-
-        MulterModule.register({
-            dest: './uploads/profile-pictures',
-        }),
-        
-        PassportModule.register({ session: true }),
-        MongooseModule.forFeature
-        ([
-            {
-                name: user.name,
-                schema: userSchema
-            },
-            {
-                name: Order.name,
-                schema: OrderSchema
-            },
-            {
-                name: Cart.name,
-                schema: CartSchema
-            },
-            {
-                name: Notification.name,
-                schema: NotificationSchema
-            }
-
-        ]),
-
-    ],
-
-    providers:[
-
-
-        {
-            provide: 'USER_SERVICE',
-            useClass: UserService
-        },
-        {
-            provide: "AUTH_SERVICE",
-            useClass: authService
-        },
-
-
-        LocalStrategy, SessionSerializer
-    ],
-
-    controllers: [ UserController ]
+  imports: [
+    MulterModule.register({
+      dest: './uploads/profile-pictures',
+    }),
+    PassportModule.register({ session: true }),
+    MongooseModule.forFeature([
+      { name: user.name, schema: userSchema },
+      { name: Order.name, schema: OrderSchema },
+      { name: Notification.name, schema: NotificationSchema },
+    ]),
+  ],
+  providers: [
+    {
+      provide: 'USER_SERVICE',
+      useClass: UserService,
+    },
+    LocalStrategy,
+    SessionSerializer,
+  ],
+  controllers: [UserController],
 })
 export class UserModule {}

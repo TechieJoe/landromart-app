@@ -3,7 +3,7 @@ import { Type } from 'class-transformer';
 
 class OrderItemDto {
   @IsString()
-  orders: string;
+  item: string; // Renamed from orders to item
 
   @IsString()
   action: string;
@@ -29,6 +29,10 @@ export class CreateOrderDto {
   @IsNotEmpty()
   orderId: string;
 
+  @IsString()
+  @IsNotEmpty()
+  reference: string;
+  
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => OrderItemDto)

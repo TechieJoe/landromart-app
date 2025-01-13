@@ -102,7 +102,7 @@
     
     <!-- Form to upload a new profile picture -->
     <form id="uploadForm" enctype="multipart/form-data">
-      <input type="file" name="image" accept="image/*" required />
+      <input type="file" id="imageInput" name="image" accept="image/*" required />
       <button type="submit">Upload Profile Picture</button>
     </form>
     
@@ -126,23 +126,10 @@
         <button class="save-btn" id="emailSaveBtn" type="button" onclick="saveField('email')">Save</button>
       </div>
 
-      <div class="form-group">
-        <label for="address">Address</label>
-        <span class="editable" id="addressDisplay"><%= user.address %></span>
-        <input type="text" id="addressInput" name="address" />
-        <span class="edit-icon" onclick="editField('address')">✎</span>
-        <button class="save-btn" id="addressSaveBtn" type="button" onclick="saveField('address')">Save</button>
-      </div>
-
       <button type="submit">Submit All Changes</button>
     </form>
     
     <hr />
-
-    <!-- Link to order history -->
-    <a href="order_history">View Order History</a><br/>
-    <a href="transaction_history">View Transaction History</a><br/>
-
     <!-- Logout form -->
     <form action="logout" method="POST">
       <button type="submit">Logout</button>
@@ -150,22 +137,38 @@
   </div>
 
   <script>
+    // Handle profile picture preview
+    const imageInput = document.getElementById('imageInput');
+    const profilePicture = document.getElementById('profilePicture');
+
+    imageInput.addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          profilePicture.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
     // Handle profile picture upload
     const uploadForm = document.getElementById('uploadForm');
-    const profilePicture = document.getElementById('profilePicture');
 
     uploadForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       const formData = new FormData(uploadForm);
 
-      const response = await fetch('upload', {
-        method: 'POST',
+      const response = await fetch('update', {
+        method: 'PUT',
         body: formData
       });
 
       const result = await response.json();
       if (response.ok) {
-        profilePicture.src = result.imageUrl;
+        profilePicture.src = result.user.profilePicture;
+        alert(result.message);
+        location.reload(); // Refresh the page
       } else {
         alert(result.message);
       }
@@ -201,11 +204,9 @@
       event.preventDefault();
 
       const formData = new FormData(updateProfileForm);
-      const updateData = {
-        name: formData.get('name'),
-        email: formData.get('email'),
-        address: formData.get('address')
-      };
+      const updateData = {};
+      if (formData.get('name')) updateData.name = formData.get('name');
+      if (formData.get('email')) updateData.email = formData.get('email');
 
       const response = await fetch('update', {
         method: 'PUT',
@@ -216,6 +217,7 @@
       const result = await response.json();
       if (response.ok) {
         alert(result.message);
+        location.reload(); // Refresh the page
       } else {
         alert('Profile update failed');
       }

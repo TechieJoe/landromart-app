@@ -1,7 +1,7 @@
 import { Inject, Injectable, UnauthorizedException } from "@nestjs/common";
 import { PassportStrategy } from "@nestjs/passport";
 import { Strategy } from "passport-local";
-import { UserService } from "src/service/user.service";
+import { UserService } from '../../service/user.service'; // Corrected import path
 
 @Injectable()
 export class LocalStrategy extends PassportStrategy(Strategy) {
@@ -12,7 +12,7 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
   }
 
   // This method is called by Passport during the authentication process
-    async validate(email: string, password: string): Promise<any> {
+  async validate(email: string, password: string): Promise<any> {
     console.log('Passport validation started'); // Debugging message
 
     // Find the user & admin by email
