@@ -72,8 +72,8 @@ export class UserService {
   
       return newOrder;
     } catch (error) {
-      console.error('Error creating order:', error); // Debugging log
-      throw new HttpException('Failed to create order', HttpStatus.INTERNAL_SERVER_ERROR);
+      return error;
+      //throw new HttpException('Failed to create order', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -166,23 +166,6 @@ export class UserService {
   async updateTransactionStatus(reference: string, status: string): Promise<void> {
     await this.orderModel.updateOne({ reference }, { $set: { status } });
   }
-
-  public static multerOptions = {
-    storage: diskStorage({
-      destination: "/app/uploads",
-      filename: (req, file, cb) => {
-        const fileName = `${Date.now()}${extname(file.originalname)}`;
-        cb(null, fileName);
-      },
-    }),
-    fileFilter: (req, file, cb) => {
-      if (file.mimetype.match(/\/(jpg|jpeg|png)$/)) {
-        cb(null, true);
-      } else {
-        cb(null, false);
-      }
-    },
-  };
 
   async getProfile(userId: string): Promise<user> {
     const user = await this.userModel.findOne({ _id: userId });

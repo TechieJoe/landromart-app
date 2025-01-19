@@ -20,35 +20,15 @@ describe('UserController', () => {
         },
         {
           provide: getModelToken('user'),
-          useValue: {
-            findOne: jest.fn(),
-            findById: jest.fn(),
-            findOneAndUpdate: jest.fn(),
-            findByIdAndUpdate: jest.fn(),
-            create: jest.fn(),
-            exec: jest.fn(),
-          },
+          useValue: {},
         },
         {
           provide: getModelToken('Order'),
-          useValue: {
-            create: jest.fn(), // Add `create` method to the mock
-            find: jest.fn(),
-            findById: jest.fn(),
-            findOne: jest.fn(),
-            updateOne: jest.fn(),
-            deleteOne: jest.fn(),
-            save: jest.fn(),
-          },
+          useValue: {},
         },
         {
           provide: getModelToken('Notification'),
-          useValue: {
-            find: jest.fn().mockReturnValue({
-              sort: jest.fn().mockReturnThis(),
-              exec: jest.fn().mockResolvedValue([]),
-            }),
-          },
+          useValue: {},
         },
       ],
     }).compile();

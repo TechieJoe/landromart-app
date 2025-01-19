@@ -10,12 +10,23 @@ import { v4 as uuidv4 } from 'uuid';
 import { UserService } from '../service/user.service'; // Corrected import path
 import * as crypto from 'crypto';
 import { CreateOrderDto } from '../utils/dtos/order'; // Corrected import path
+import { v2 as cloudinary } from 'cloudinary';
+import { ConfigService } from '@nestjs/config';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
 @Controller()
 export class UserController {
   constructor(
     @Inject("USER_SERVICE") private userService: UserService,
-  ) {}
+    private configService: ConfigService
+  ) {
+     // Configure Cloudinary
+      cloudinary.config({
+      cloud_name: this.configService.get('CLOUDINARY_CLOUD_NAME'),
+      api_key: this.configService.get('CLOUDINARY_API_KEY'),
+      api_secret: this.configService.get('CLOUDINARY_API_SECRET'),
+    });
+  }
 
   @Render('signup')
   @Get('signup.ejs')
@@ -159,12 +170,15 @@ export class UserController {
   @Put('update')
   @UseInterceptors(
     FileInterceptor('image', {
-      storage: diskStorage({
-        destination: './uploads/profile-pictures',
-        filename: (req, file, cb) => {
-          const filename = uuidv4() + extname(file.originalname);
-          cb(null, filename);
-        },
+      storage: new CloudinaryStorage({
+        cloudinary: cloudinary,
+        params: {
+          folder: 'profile-pictures', // Cloudinary folder
+          resource_type: 'image', // Ensures only images are handled
+          format: async () => 'png', // Optional: Always store images as PNG
+          public_id: (req, file) =>
+            `${Date.now()}_${file.originalname.split('.')[0]}`, // Custom public ID
+        } as any, // <--- Fix type checking
       }),
       fileFilter: (req, file, cb) => {
         if (file.mimetype.startsWith('image/')) {
@@ -175,16 +189,24 @@ export class UserController {
       },
     })
   )
-  async updateProfile(
+    async updateProfile(
     @Body() updateProfileDto: UpdateProfileDto,
     @UploadedFile() file: Express.Multer.File,
     @Request() req
   ) {
     const userId = req.session.userId;
-    const profilePicture = file ? `/uploads/profile-pictures/${file.filename}` : undefined;
-    const updatedUser = await this.userService.updateProfile(userId, updateProfileDto, profilePicture);
+
+    const profilePicture = file ? file.path : undefined;
+
+    const updatedUser = await this.userService.updateProfile(
+      userId,
+      updateProfileDto,
+      profilePicture
+    );
+
     return { message: 'Profile updated successfully', user: updatedUser };
   }
+
 
   @UseGuards(AuthenticatedGuard)
   @Render('profile')

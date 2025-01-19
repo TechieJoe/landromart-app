@@ -11,13 +11,13 @@ import { AppController } from './controller/app.controller'; // Add this import
     }),
     MongooseModule.forRootAsync({
       useFactory: async (configService: ConfigService) => ({
-        uri: `mongodb://${configService.get<string>('DATABASE_HOST')}:${configService.get<string>('DATABASE_PORT')}/${configService.get<string>('DATABASE_NAME')}`,
+        uri: configService.get<string>('MONGODB_URI'), // Use MONGODB_URI directly
       }),
       inject: [ConfigService],
     }),
     UserModule,
   ],
-  controllers: [AppController], // Add this line
+  controllers: [AppController],
   providers: [],
 })
 export class AppModule {}
