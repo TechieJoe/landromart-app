@@ -1,32 +1,33 @@
-import { Body, Controller, Get, HttpException, HttpStatus, Inject, Param, Patch, Post, Put, Query, Render, Req, Request, Res, Session, UnauthorizedException, UploadedFile, UseGuards, UseInterceptors, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpException, HttpStatus, Inject, Param, Patch, Post, Put, Query, Render, Req, Request, Res, Session, UnauthorizedException, UploadedFile, UseGuards, UseInterceptors, UsePipes, ValidationPipe } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
-import { extname } from 'path';
 import { AuthenticatedGuard, localGuard } from '../utils/Guards/localGuard';
 import { UpdateProfileDto } from '../utils/dtos/profile'; // Corrected import path
 import { signupDto } from '../utils/dtos/signupDto'; // Corrected import path
-import { diskStorage } from 'multer';
 import { v4 as uuidv4 } from 'uuid';
-import { UserService } from '../service/user.service'; // Corrected import path
 import * as crypto from 'crypto';
 import { CreateOrderDto } from '../utils/dtos/order'; // Corrected import path
 import { v2 as cloudinary } from 'cloudinary';
 import { ConfigService } from '@nestjs/config';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import { AuthService } from 'src/service/auth.service';
+import { OrderService } from 'src/service/order.service';
+import { NotificationService } from 'src/service/notification.service';
 
 @Controller()
 export class UserController {
   constructor(
-    @Inject("USER_SERVICE") private userService: UserService,
+    @Inject("AUTH_SERVICE") private authService: AuthService,
+    @Inject("NOTIFICATION_SERVICE") private notificationService: NotificationService,
+    @Inject("ORDER_SERVICE") private orderService: OrderService,
+
     private configService: ConfigService
   ) {
-     // Configure Cloudinary
-      cloudinary.config({
-      cloud_name: this.configService.get('CLOUDINARY_CLOUD_NAME'),
-      api_key: this.configService.get('CLOUDINARY_API_KEY'),
-      api_secret: this.configService.get('CLOUDINARY_API_SECRET'),
-    });
+    // Initialize Paystack secret key
+    this.paystackSecretKey = this.configService.get<string>('PAYSTACK_SECRET_KEY');
   }
+
+  private readonly paystackSecretKey: string;
 
   @Render('signup')
   @Get('signup.ejs')
@@ -40,7 +41,7 @@ export class UserController {
     @Session() session: Record<string, any>
   ) {
     try {
-      const user = await this.userService.createUser(signupDto, session);
+      const user = await this.authService.createUser(signupDto, session);
       (req as any).login(user, (err: any) => {
         if (err) {
           return res.status(500).json({ message: 'Signup succeeded, but automatic login failed' });
@@ -66,7 +67,7 @@ export class UserController {
   ) {
     try {
       const { email, password } = req.body;
-      const user = await this.userService.validate(email, password);
+      const user = await this.authService.validate(email, password);
       if (!user) {
         return res.render('login', { error: 'Invalid email or password' });
       }
@@ -102,30 +103,34 @@ export class UserController {
     try {
       const userId = req.session.userId;
       const userEmail = req.session.email;
+  
       if (!userId || !userEmail) {
         throw new Error('User ID or email missing from session');
       }
-
+  
       createOrderDto.email = userEmail;
       createOrderDto.userId = userId;
-      const orderId = uuidv4(); 
-      createOrderDto.orderId = orderId;
-      const reference = crypto.randomBytes(16).toString('hex');
-      createOrderDto.reference = reference
+      createOrderDto.orderId = uuidv4(); 
+      createOrderDto.reference = crypto.randomBytes(16).toString('hex');
+  
       const { orders, grandTotal } = createOrderDto;
-
       if (!orders || !grandTotal) {
         throw new Error('Missing order details or grand total');
       }
-
-      const order = await this.userService.createOrder(createOrderDto);
-      const paymentUrl = await this.userService.initializeTransaction(createOrderDto);
+  
+      await this.orderService.createOrder(createOrderDto);
+      const paymentUrl = await this.orderService.initializeTransaction(createOrderDto);
+  
       if (!paymentUrl) {
         throw new Error('Failed to initialize Paystack transaction');
       }
+  
       return res.json({ authorizationUrl: paymentUrl });
     } catch (error) {
-      return res.status(500).json({ message: 'Failed to place order, please try again', error: error.message });
+      return res.status(500).json({
+        message: 'Failed to place order, please try again',
+        error: error.message,
+      });
     }
   }
 
@@ -135,9 +140,9 @@ export class UserController {
       if (!reference) {
         throw new HttpException('No reference found in query parameters', HttpStatus.BAD_REQUEST);
       }
-      const result = await this.userService.verifyTransaction(reference);
+      const result = await this.orderService.verifyTransaction(reference);
       if (result.data.status === 'success') {
-        await this.userService.updateTransactionStatus(reference, 'successful');
+        await this.orderService.updateTransactionStatus(reference, 'successful');
         return res.redirect('home');
       } else {
         throw new HttpException('Transaction verification failed', HttpStatus.BAD_REQUEST);
@@ -147,19 +152,56 @@ export class UserController {
     }
   }
 
+  @Post('paystack/webhook')
+  @HttpCode(200)
+  async handleWebhook(@Req() req: Request, @Res() res: Response) {
+  const secret = this.paystackSecretKey;
+
+  // Validate Paystack signature
+  const hash = crypto
+    .createHmac('sha512', secret)
+    .update(JSON.stringify(req.body))
+    .digest('hex');
+
+  const signature = req.headers['x-paystack-signature'];
+  if (hash !== signature) {
+    return res.status(401).send('Invalid signature');
+  }
+
+  const event: { event: string; data: any } = JSON.parse(req.body as any);
+  const metadata = event?.data?.metadata;
+  const reference = event?.data?.reference;
+
+  if (event.event === 'charge.success') {
+    console.log('💰 Payment successful for:', metadata?.sourceApp);
+
+    const app = metadata?.sourceApp;
+
+    // Route by app identifier
+    if (app === 'laundromart') {
+      await this.orderService.handleWebhookEvent(event);
+    } else {
+      console.warn('❗ Unrecognized app source:', app);
+    }
+
+    return res.send('Webhook handled');
+  }
+
+  return res.send('Unhandled event');
+}
+
+
   @UseGuards(AuthenticatedGuard)
-  @Render('notification') // Specify the view to render
+  @Render('notification')
   @Get('notification')
   async getUserNotifications(@Request() req) {
     try {
       const userId = req.session.userId;
       if (!userId) {
-        // Just return an object for rendering
         return { notifications: [] }; 
       }
   
-      const notifications = await this.userService.getUserNotifications(userId);
-      console.log('Notifications:', notifications); // Log notifications for debugging
+      const notifications = await this.notificationService.getUserNotifications(userId);
       // Return the notifications object for rendering in the view
       return { notifications };
     } catch (error) {
@@ -198,7 +240,7 @@ export class UserController {
 
     const profilePicture = file ? file.path : undefined;
 
-    const updatedUser = await this.userService.updateProfile(
+    const updatedUser = await this.authService.updateProfile(
       userId,
       updateProfileDto,
       profilePicture
@@ -213,7 +255,7 @@ export class UserController {
   @Get('profile')
   async getProfilePage(@Request() req): Promise<any> {
     const userId = req.session.userId;
-    const user = await this.userService.getProfile(userId);
+    const user = await this.authService.getProfile(userId);
     return { user };
   }
 
