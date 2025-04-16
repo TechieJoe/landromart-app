@@ -33,7 +33,7 @@ async function bootstrap() {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  const port = configService.get<number>('PORT');
+  const port = process.env.PORT || configService.get<number>('PORT') || 3000;
   await app.listen(port);
 
   // 🧠 Memory usage logging (only logs locally in terminal)
@@ -43,6 +43,7 @@ async function bootstrap() {
     const rssMB = (memoryUsage.rss / 1024 / 1024).toFixed(2);
     console.log(`[MEMORY USAGE] Heap: ${heapUsedMB} MB | RSS: ${rssMB} MB`);
   }, 10000); // Every 10 seconds
+  
 }
 
 bootstrap();
