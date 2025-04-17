@@ -33,7 +33,7 @@ async function bootstrap() {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  const port = process.env.PORT || configService.get<number>('PORT') || '0.0.0.0';
+  const port = process.env.PORT ;
   const host = '0.0.0.0'; // Required for Railway & many hosting environments
 
   await app.listen(port, host);
