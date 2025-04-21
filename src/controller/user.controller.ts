@@ -13,6 +13,7 @@ import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import { AuthService } from 'src/service/auth.service';
 import { OrderService } from 'src/service/order.service';
 import { NotificationService } from 'src/service/notification.service';
+import { CacheInterceptor } from '@nestjs/cache-manager';
 
 @Controller()
 export class UserController {
@@ -66,25 +67,30 @@ export class UserController {
     @Session() session: Record<string, any>
   ) {
     try {
-      const { email, password } = req.body;
-      const user = await this.authService.validate(email, password);
-      if (!user) {
-        return res.render('login', { error: 'Invalid email or password' });
-      }
+      const user = req.user; // localGuard already validated this
       session.userId = user._id;
-      req.session.email = email;
-      return res.redirect('home');
+      req.login(user, (err) => {
+        if (err) {
+          console.error('Login error:', err);
+          return res.render('login', { error: 'Login failed' });
+        }
+        return res.redirect('home');
+      });
     } catch (error) {
-      return res.render('login', { error: 'An error occurred during login' });
+      return res.render('login', { error: 'Login error' });
     }
   }
-
+  
+  @Get('home')
   @UseGuards(AuthenticatedGuard)
   @Render('home')
-  @Get('home')
-  home() {}
-
-
+  home(@Req() req) {
+    console.log('Session:', req.session);
+    console.log('Authenticated:', req.isAuthenticated?.());
+    return {};
+  }
+  
+  @UseInterceptors(CacheInterceptor)
   @Render('service')
   @Get('service')
   service() {}
@@ -190,7 +196,7 @@ export class UserController {
   return res.send('Unhandled event');
 }
 
-
+  @UseInterceptors(CacheInterceptor) 
   @UseGuards(AuthenticatedGuard)
   @Render('notification')
   @Get('notification')
@@ -249,7 +255,7 @@ export class UserController {
     return { message: 'Profile updated successfully', user: updatedUser };
   }
 
-
+  @UseInterceptors(CacheInterceptor)
   @UseGuards(AuthenticatedGuard)
   @Render('profile')
   @Get('profile')
