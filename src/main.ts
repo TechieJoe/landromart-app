@@ -19,6 +19,7 @@ async function bootstrap() {
   app.useStaticAssets(join(__dirname, '..', 'public'));
   app.setBaseViewsDir(join(__dirname, '..', 'views'));
   app.setViewEngine('ejs');
+  app.set('trust proxy', 1);
 
   app.use(cookieParser());
 
@@ -40,6 +41,7 @@ async function bootstrap() {
     prefix: 'sess:',
   });
 
+  // ✅ session middleware FIRST
   app.use(
     session({
       store,
@@ -49,14 +51,22 @@ async function bootstrap() {
       saveUninitialized: false,
       cookie: {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: parseInt(configService.get<string>('SESSION_MAX_AGE') || '3600000'),
+        secure: process.env.NODE_ENV === 'production', // ✅ adjust based on environment
+        maxAge: parseInt(configService.get<string>('SESSION_MAX_AGE') || '86400000'), // ✅ default to 1 day
       },
     }),
   );
 
+  // ✅ then passport
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // ✅ logging after passport.session so req.isAuthenticated exists
+  app.use((req, res, next) => {
+    console.log('🛡️ Session:', req.session);
+    console.log('🛡️ Authenticated:', req.isAuthenticated?.());
+    next();
+  });
 
   app.setGlobalPrefix('laundromart-app');
 

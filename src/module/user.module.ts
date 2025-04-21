@@ -5,7 +5,6 @@ import { PassportModule } from '@nestjs/passport';
 import { UserController } from '../controller/user.controller'; // Corrected import path
 import { SessionSerializer } from '../utils/strategies/serializer'; // Corrected import path
 import { Order, OrderSchema } from '../utils/schemas/order'; // Corrected import path
-import { MulterModule } from '@nestjs/platform-express';
 import { Notification, NotificationSchema } from '../utils/schemas/notification'; // Corrected import path
 import { LocalStrategy } from '../utils/strategies/passport';
 import { user, userSchema } from '../utils/schemas/user';
@@ -35,9 +34,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       }),
     }),
 
-    MulterModule.register({
-      dest: './uploads/profile-pictures',
-    }),
     PassportModule.register({ session: true }),
     MongooseModule.forFeature([
       { name: user.name, schema: userSchema },
