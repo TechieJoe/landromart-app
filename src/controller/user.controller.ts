@@ -82,7 +82,7 @@ export class UserController {
   }
   
   @Get('home')
-  @UseGuards(AuthenticatedGuard)
+  //@UseGuards(AuthenticatedGuard)
   @Render('home')
   home(@Req() req) {
     console.log('Session:', req.session);
@@ -95,7 +95,7 @@ export class UserController {
   @Get('service')
   service() {}
 
-  @UseGuards(AuthenticatedGuard)
+  //@UseGuards(AuthenticatedGuard)
   @Render('order')
   @Get('order.html')
   order(@Req() req: Request) {}

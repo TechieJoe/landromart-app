@@ -74,7 +74,8 @@ async function bootstrap() {
   const host = '0.0.0.0';
 
   await app.listen(port, host);
-  console.log(`🚀 Server is live at http://${host}:${port}/laundromart-app`);
+  console.log(`🚀 Server is live at http://${host}:${port}/laundromart-app`);   
+
 }
 
 bootstrap();
